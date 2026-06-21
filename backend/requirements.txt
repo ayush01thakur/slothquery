@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+cryptography
+chromadb
+litellm
+sentence-transformers
+sqlglot
+python-multipart

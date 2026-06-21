@@ -1,0 +1,86 @@
+# ──────────────────────────────────────────────
+# SlothQuery .gitignore
+# ──────────────────────────────────────────────
+
+# ── Python ──────────────────────────────────
+backend/venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── Node / Frontend ──────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# ── Database & User Data ─────────────────────
+# SQLite DB contains encrypted API keys and personal knowledge base.
+# Never commit these.
+*.db
+*.sqlite
+*.sqlite3
+
+# ── ChromaDB Vector Store ────────────────────
+# Embeddings are derived state and can be rebuilt via Re-index.
+chroma_db/
+**/chroma_db/
+
+# ── Knowledge Base Exports ───────────────────
+*.slothkb
+exports/
+**/Exports/
+
+# ── Environment & Secrets ────────────────────
+.env
+.env.*
+*.pem
+*.key
+*.secret
+secrets.json
+
+# ── Agent & Internal Docs ────────────────────
+# Internal agent configuration — not for public exposure.
+agents.md
+agent rules docs/
+.agents/
+*.agents.md
+
+# ── IDE & OS ─────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs & Temp ──────────────────────────────
+*.log
+*.tmp
+*.temp
+scratch/
+**/scratch/
+temp/
+tmp/
+
+# ── Test Artifacts ───────────────────────────
+backend/tests/__pycache__/
+backend/scratch/
