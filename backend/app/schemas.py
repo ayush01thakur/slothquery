@@ -112,3 +112,7 @@ class DraftExtractionRequest(BaseModel):
 
 class QueryCreateWithContext(QueryCreate):
     context_json: Dict[str, Any]
+
+class PlaybookPushPreviewRequest(BaseModel):
+    vault_id: str
+    context_json: Dict[str, Any]

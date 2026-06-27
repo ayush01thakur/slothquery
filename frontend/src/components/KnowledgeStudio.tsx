@@ -59,6 +59,14 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
   const [draftAmbiguities, setDraftAmbiguities] = useState<string[]>([]);
   const [isFinalSaving, setIsFinalSaving] = useState(false);
 
+  // Step 2: Playbook push preview states
+  const [showPlaybookPushModal, setShowPlaybookPushModal] = useState(false);
+  const [playbookPushPreview, setPlaybookPushPreview] = useState<any[]>([]);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isConfirmingPush, setIsConfirmingPush] = useState(false);
+  const [savedVaultId, setSavedVaultId] = useState(''); // vault of the just-saved query
+  const [savedContextJson, setSavedContextJson] = useState<any>(null);
+
   // Playbook Form states (for Rules, Schemas, Notes)
   const [playbookFormType, setPlaybookFormType] = useState<'business_rules' | 'table_schemas' | 'analyst_notes'>('business_rules');
   const [playbookFormName, setPlaybookFormName] = useState('');
@@ -290,22 +298,61 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
         context_json: finalContext
       });
 
-      setNewTitle('');
-      setNewDesc('');
-      setNewSql('');
-      setNewComments('');
-      setNewTags('');
-      
+      // Close review modal and move to Step 2: Push to Playbooks?
       setShowReviewModal(false);
-      setShowAddForm(false);
-      alert('Query approved and saved successfully! Playbooks are consolidating in the background.');
+      setSavedVaultId(targetVaultId);
+      setSavedContextJson(finalContext);
       fetchQueries();
+
+      // Load the playbook push preview
+      setIsLoadingPreview(true);
+      setShowPlaybookPushModal(true);
+      try {
+        const previewRes = await axios.post('http://localhost:8000/api/queries/preview-playbook-push', {
+          vault_id: targetVaultId,
+          context_json: finalContext
+        });
+        setPlaybookPushPreview(previewRes.data.preview || []);
+      } catch (previewErr) {
+        console.error('Preview failed:', previewErr);
+        setPlaybookPushPreview([]);
+      } finally {
+        setIsLoadingPreview(false);
+      }
+
+      // Reset form
+      setNewTitle(''); setNewDesc(''); setNewSql(''); setNewComments(''); setNewTags('');
+      setShowAddForm(false);
     } catch (err: any) {
       console.error(err);
       alert(`Failed to save query context: ${err.response?.data?.detail || err.message}`);
     } finally {
       setIsFinalSaving(false);
     }
+  };
+
+  const handleConfirmPlaybookPush = async () => {
+    setIsConfirmingPush(true);
+    try {
+      await axios.post('http://localhost:8000/api/queries/confirm-playbook-push', {
+        vault_id: savedVaultId,
+        context_json: savedContextJson
+      });
+      setShowPlaybookPushModal(false);
+      setPlaybookPushPreview([]);
+      // Refresh playbooks list
+      fetchQueries();
+    } catch (err: any) {
+      console.error('Playbook push failed:', err);
+      alert('Could not push to playbooks. You can do it manually from the Rules/Schemas/Notes tabs.');
+    } finally {
+      setIsConfirmingPush(false);
+    }
+  };
+
+  const handleSkipPlaybookPush = () => {
+    setShowPlaybookPushModal(false);
+    setPlaybookPushPreview([]);
   };
 
   const handleSavePlaybook = async (e: React.FormEvent) => {
@@ -1364,6 +1411,92 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2 Modal: Push to Knowledge Base? ── */}
+      {showPlaybookPushModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">STEP 2 OF 2 · OPTIONAL</p>
+                <h2 className="text-base font-bold text-slate-900">Push to Knowledge Base?</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  The AI has prepared updates to your Rules, Schemas, and Notes. Review below and confirm only if accurate.
+                  You can always manage these manually from the respective tabs.
+                </p>
+              </div>
+            </div>
+
+            {/* Preview body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+              {isLoadingPreview ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
+                  <Loader2 size={24} className="animate-spin text-blue-400" />
+                  <span className="text-xs">Analyzing what to push to your knowledge base…</span>
+                </div>
+              ) : playbookPushPreview.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400">
+                  <CheckCircle size={22} className="text-emerald-400" />
+                  <span className="text-xs font-medium">Nothing new to push — your knowledge base is already up to date.</span>
+                </div>
+              ) : (
+                playbookPushPreview.map((item: any, idx: number) => {
+                  const isCreate = item.action === 'create';
+                  const typeLabel = (item.type || 'playbook').replace('_', ' ');
+                  const content = isCreate ? item.content : item.new_content;
+                  return (
+                    <div key={idx} className="border border-slate-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2.5 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          isCreate
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {isCreate ? '+ CREATE' : '↑ UPDATE'}
+                        </span>
+                        <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{typeLabel}</span>
+                        <span className="text-xs font-semibold text-slate-800 truncate">{item.name}</span>
+                      </div>
+                      <pre className="px-3 py-2.5 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto font-mono bg-white">
+                        {content || '(no content)'}
+                      </pre>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center">
+              <p className="text-[10px] text-slate-400">
+                ⚠ Only new, non-duplicate information will be merged. Existing content is preserved.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSkipPlaybookPush}
+                  className="text-xs font-semibold px-4 py-2 border border-slate-200 rounded hover:bg-slate-50 bg-white text-slate-600"
+                >
+                  Skip for now
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPlaybookPush}
+                  disabled={isConfirmingPush || isLoadingPreview || playbookPushPreview.length === 0}
+                  className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50 flex items-center gap-1.5 shadow-subtle transition-colors"
+                >
+                  {isConfirmingPush ? (
+                    <><Loader2 size={12} className="animate-spin" />Pushing…</>
+                  ) : (
+                    <><Check size={12} />Confirm & Push to Knowledge Base</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

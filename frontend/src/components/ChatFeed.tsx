@@ -1,7 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, Terminal, Copy, Check, Plus, Folder, Tag, Layers, Globe } from 'lucide-react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import logoImg from '../logo.png';
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 border border-red-200 bg-red-50 text-red-800 rounded-lg text-xs font-mono max-w-full overflow-auto">
+          <p className="font-bold mb-1">Markdown Render Error:</p>
+          <pre className="whitespace-pre-wrap">{this.state.error?.stack || this.state.error?.message}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface ChatFeedProps {
   chat: any;
@@ -39,7 +71,7 @@ export default function ChatFeed({
     const ta = newChatTextareaRef.current;
     if (ta) {
       ta.style.height = 'auto';
-      ta.style.height = `${Math.min(150, ta.scrollHeight)}px`;
+      ta.style.height = `${input.trim() ? Math.max(28, Math.min(150, ta.scrollHeight)) : 28}px`;
     }
   }, [input, chat]);
 
@@ -47,7 +79,7 @@ export default function ChatFeed({
     const ta = chatTextareaRef.current;
     if (ta) {
       ta.style.height = 'auto';
-      ta.style.height = `${Math.min(150, ta.scrollHeight)}px`;
+      ta.style.height = `${input.trim() ? Math.max(28, Math.min(150, ta.scrollHeight)) : 28}px`;
     }
   }, [input, chat]);
 
@@ -131,107 +163,80 @@ export default function ChatFeed({
     }
   };
 
-  // Renders inline markdown: **bold**, *italic*, `inline code`
-  const renderInline = (text: string): React.ReactNode[] => {
-    const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
-    return tokens.map((tok, i) => {
-      if (tok.startsWith('**') && tok.endsWith('**')) {
-        return <strong key={i} className="font-semibold text-slate-900">{tok.slice(2, -2)}</strong>;
-      }
-      if (tok.startsWith('*') && tok.endsWith('*') && tok.length > 2) {
-        return <em key={i} className="italic">{tok.slice(1, -1)}</em>;
-      }
-      if (tok.startsWith('`') && tok.endsWith('`') && tok.length > 2) {
-        return <code key={i} className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-[11px] font-mono">{tok.slice(1, -1)}</code>;
-      }
-      return <span key={i}>{tok}</span>;
-    });
-  };
-
   const renderMessageContent = (text: string, msgId: string) => {
     if (!text) return null;
 
-    // Split on fenced code blocks first
-    const segments = text.split(/(```[\s\S]*?```)/g);
+    let cleaned = text;
+    if (cleaned.includes('[Context Tags:')) {
+      cleaned = cleaned.split('[Context Tags:')[0].trim();
+    }
 
-    return segments.map((segment, segIdx) => {
-      // --- Code block ---
-      if (segment.startsWith('```')) {
-        const lines = segment.split('\n');
-        const lang = lines[0].replace('```', '').trim().toUpperCase();
-        const code = lines.slice(1).join('\n').replace(/```\s*$/, '').trimEnd();
-        const codeId = `${msgId}-${segIdx}`;
-        return (
-          <div key={segIdx} className="my-3 rounded-lg overflow-hidden shadow-subtle bg-slate-900 border border-slate-800">
-            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800/80 border-b border-slate-700/60 text-[10px] uppercase tracking-wider text-slate-400 font-sans font-bold select-none">
-              <span className="flex items-center gap-1.5">
-                <Terminal size={12} className="text-blue-400" />
-                {lang || activeDialect.toUpperCase() || 'SQL'}
-              </span>
-              <button onClick={() => handleCopyCode(code, codeId)} className="flex items-center gap-1 hover:text-white transition-colors">
-                {copiedId === codeId
-                  ? <><Check size={12} className="text-emerald-400" />Copied</>
-                  : <><Copy size={12} />Copy</>}
-              </button>
-            </div>
-            <pre className="p-3 overflow-x-auto leading-relaxed text-slate-100 font-mono text-xs"><code>{code}</code></pre>
-          </div>
-        );
-      }
-
-      // --- Plain text: parse line by line for markdown ---
-      // Strip context tag annotation injected by the frontend
-      let cleaned = segment;
-      if (cleaned.includes('[Context Tags:')) {
-        cleaned = cleaned.split('[Context Tags:')[0].trim();
-      }
-      if (!cleaned.trim()) return null;
-
-      const lines = cleaned.split('\n');
-      const elements: React.ReactNode[] = [];
-      let listItems: React.ReactNode[] = [];
-      let listType: 'ol' | 'ul' | null = null;
-
-      const flushList = () => {
-        if (listItems.length === 0) return;
-        if (listType === 'ol') {
-          elements.push(<ol key={`ol-${elements.length}`} className="list-decimal list-inside space-y-1 my-1.5 text-sm text-slate-800">{listItems}</ol>);
-        } else {
-          elements.push(<ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-1 my-1.5 text-sm text-slate-800">{listItems}</ul>);
-        }
-        listItems = [];
-        listType = null;
-      };
-
-      lines.forEach((line, li) => {
-        const orderedMatch = line.match(/^(\d+)\.\s+(.*)/);
-        const unorderedMatch = line.match(/^[-•]\s+(.*)/);
-
-        if (orderedMatch) {
-          if (listType === 'ul') flushList();
-          listType = 'ol';
-          listItems.push(<li key={li} className="leading-relaxed">{renderInline(orderedMatch[2])}</li>);
-        } else if (unorderedMatch) {
-          if (listType === 'ol') flushList();
-          listType = 'ul';
-          listItems.push(<li key={li} className="leading-relaxed">{renderInline(unorderedMatch[1])}</li>);
-        } else {
-          flushList();
-          if (line.trim() === '') {
-            elements.push(<div key={`sp-${li}`} className="h-2" />);
-          } else {
-            elements.push(
-              <p key={`p-${li}`} className="leading-relaxed text-sm text-slate-800 break-words">
-                {renderInline(line)}
-              </p>
-            );
-          }
-        }
-      });
-      flushList();
-
-      return <div key={segIdx} className="flex flex-col gap-0.5">{elements}</div>;
-    });
+    return (
+      <div className="text-sm text-slate-800 leading-relaxed break-words">
+        <ErrorBoundary>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-5 mb-3 text-slate-900" {...props} />,
+              h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-2 text-slate-900" {...props} />,
+              h3: ({node, ...props}) => <h3 className="text-md font-bold mt-3 mb-2 text-slate-900" {...props} />,
+              p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
+              ul: ({node, ...props}) => <ul className="list-disc list-outside ml-5 mb-3 space-y-1" {...props} />,
+              ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-5 mb-3 space-y-1" {...props} />,
+              li: ({node, ...props}) => <li className="pl-1" {...props} />,
+              strong: ({node, ...props}) => <strong className="font-semibold text-slate-900" {...props} />,
+              em: ({node, ...props}) => <em className="italic text-slate-700" {...props} />,
+              a: ({node, ...props}) => <a className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+              table: ({node, ...props}) => (
+                <div className="overflow-x-auto my-4 border border-slate-200 rounded-lg shadow-sm">
+                  <table className="w-full text-left border-collapse text-sm" {...props} />
+                </div>
+              ),
+              thead: ({node, ...props}) => <thead className="bg-slate-50 border-b border-slate-200" {...props} />,
+              th: ({node, ...props}) => <th className="px-4 py-2 font-semibold text-slate-700" {...props} />,
+              td: ({node, ...props}) => <td className="px-4 py-2 border-t border-slate-100 text-slate-600" {...props} />,
+              code: ({node, className, children, ...props}: any) => {
+                const match = /language-(\w+)/.exec(className || '');
+                const isInline = !match && !String(children).includes('\n');
+                
+                if (!isInline) {
+                  const lang = match ? match[1] : '';
+                  const codeString = String(children).replace(/\n$/, '');
+                  const codeId = `${msgId}-${codeString.length}`;
+                  
+                  return (
+                    <div className="my-4 rounded-lg overflow-hidden shadow-subtle bg-slate-900 border border-slate-800">
+                      <div className="flex items-center justify-between px-3 py-2 bg-slate-800/80 border-b border-slate-700/60 text-[10px] uppercase tracking-wider text-slate-400 font-sans font-bold select-none">
+                        <span className="flex items-center gap-1.5">
+                          <Terminal size={12} className="text-blue-400" />
+                          {lang || (activeDialect ? activeDialect.toUpperCase() : 'SQL')}
+                        </span>
+                        <button onClick={() => handleCopyCode(codeString, codeId)} className="flex items-center gap-1 hover:text-white transition-colors">
+                          {copiedId === codeId
+                            ? <><Check size={12} className="text-emerald-400" />Copied</>
+                            : <><Copy size={12} />Copy</>}
+                        </button>
+                      </div>
+                      <div className="p-4 overflow-x-auto leading-relaxed text-slate-100 font-mono text-[13px]">
+                        <code className={className} {...props}>{children}</code>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[12px] font-mono border border-slate-200" {...props}>
+                    {children}
+                  </code>
+                );
+              }
+            }}
+          >
+            {cleaned}
+          </ReactMarkdown>
+        </ErrorBoundary>
+      </div>
+    );
   };
 
   if (!chat) {
@@ -275,21 +280,20 @@ export default function ChatFeed({
       <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col bg-white">
         {isNewChat ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto w-full select-none py-10">
-            <div className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200/80 rounded-2xl mb-4 shadow-subtle overflow-hidden select-none p-1.5">
+            <div className="w-16 h-16 flex items-center justify-center bg-white border border-slate-200/80 rounded-2xl mb-4 shadow-subtle overflow-hidden select-none p-2">
               <img src={logoImg} alt="SlothQuery Logo" className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Ask SlothQuery</h2>
-            <p className="text-xs text-slate-500 max-w-md mt-2 leading-relaxed">
-              Define the metrics or logic you want. SlothQuery searches your playbooks and queries offline to write exact SQL codes.
+            <h2 className="text-3xl font-semibold text-slate-900 tracking-tight">SlothQuery</h2>
+            <p className="text-sm text-slate-500 max-w-md mt-3 leading-relaxed">
+              Not every sloth is slow... This sloth is faster when it comes to doing your slow SQL writing and business logic understanding job.
             </p>
             
-            {/* Center input bar for New Chat */}
-            <div className="w-full max-w-lg mt-8">
-              <form onSubmit={handleSubmit} className="flex flex-col gap-2 relative border border-slate-200 shadow-md rounded-2xl bg-white p-2 focus-within:ring-1 focus-within:ring-slate-400 focus-within:border-slate-400 transition-shadow">
-                <div className="flex items-start gap-2">
+            <div className="w-full max-w-2xl mt-8">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-2 relative border border-slate-200 shadow-md rounded-full bg-white py-1 pl-3 pr-1 focus-within:ring-1 focus-within:ring-slate-400 focus-within:border-slate-400 transition-shadow">
+                <div className="flex items-center gap-2">
                   
                   {/* Plus Options Trigger */}
-                  <div className="relative mt-2.5">
+                  <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowPopover(!showPopover)}
@@ -393,18 +397,18 @@ export default function ChatFeed({
                     data-gramm="false"
                     data-gramm_editor="false"
                     data-enable-grammarly="false"
-                    placeholder={`Write SQL query or check playbooks in ${activeDialect.toUpperCase()}...`}
-                    className="flex-1 text-sm border-none bg-transparent py-2.5 px-1 focus:outline-none resize-none disabled:bg-transparent min-h-[40px] max-h-[150px] leading-relaxed text-slate-800 overflow-y-auto"
-                    style={{ height: '40px' }}
+                    placeholder="Does client or you need that data again? let's begin querying it..."
+                    className="flex-1 text-sm border-none bg-transparent py-1 px-2 placeholder:italic focus:outline-none resize-none disabled:bg-transparent min-h-[28px] max-h-[150px] leading-5 text-slate-800 overflow-y-auto"
+                    style={{ height: '28px' }}
                   />
 
                   {/* Rounded Send Button */}
                   <button
                     type="submit"
                     disabled={!input.trim() || isLoading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-subtle transition-colors disabled:opacity-30 mt-2 shrink-0 flex items-center justify-center mr-1"
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-10 h-10 rounded-full shadow-subtle transition-colors disabled:opacity-30 shrink-0 flex items-center justify-center"
                   >
-                    <Send size={14} />
+                    <Send size={18} />
                   </button>
                 </div>
               </form>
@@ -461,11 +465,11 @@ export default function ChatFeed({
       {!isNewChat && (
         <div className="px-6 pb-6 pt-2 w-full bg-transparent">
           <div className="max-w-3xl mx-auto w-full relative">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-2 relative border border-slate-200 shadow-md rounded-2xl bg-white p-2 focus-within:ring-1 focus-within:ring-slate-400 focus-within:border-slate-400 transition-shadow">
-              <div className="flex items-start gap-2">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2 relative border border-slate-200 shadow-md rounded-full bg-white py-1 pl-3 pr-1 focus-within:ring-1 focus-within:ring-slate-400 focus-within:border-slate-400 transition-shadow">
+              <div className="flex items-center gap-2">
                 
                 {/* Plus Options Trigger */}
-                <div className="relative mt-2.5">
+                <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowPopover(!showPopover)}
@@ -568,18 +572,18 @@ export default function ChatFeed({
                   data-gramm="false"
                   data-gramm_editor="false"
                   data-enable-grammarly="false"
-                  placeholder={`Write SQL query or check playbooks in ${activeDialect.toUpperCase()}...`}
-                  className="flex-1 text-sm border-none bg-transparent py-2.5 px-1 focus:outline-none resize-none disabled:bg-transparent min-h-[40px] max-h-[150px] leading-relaxed text-slate-800 overflow-y-auto"
-                  style={{ height: '40px' }}
+                  placeholder="Does client or you need that data again? let's begin querying it..."
+                  className="flex-1 text-sm border-none bg-transparent py-1 px-2 placeholder:italic focus:outline-none resize-none disabled:bg-transparent min-h-[28px] max-h-[150px] leading-5 text-slate-800 overflow-y-auto"
+                  style={{ height: '28px' }}
                 />
 
                 {/* Rounded Send Button */}
                 <button
                   type="submit"
                   disabled={!input.trim() || isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-subtle transition-colors disabled:opacity-30 mt-2 shrink-0 flex items-center justify-center mr-1"
+                  className="bg-blue-600 hover:bg-blue-700 text-white w-10 h-10 rounded-full shadow-subtle transition-colors disabled:opacity-30 shrink-0 flex items-center justify-center"
                 >
-                  <Send size={14} />
+                  <Send size={18} />
                 </button>
               </div>
             </form>

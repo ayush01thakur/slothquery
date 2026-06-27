@@ -151,7 +151,7 @@ def extract_draft_intelligence(req: schemas.DraftExtractionRequest, db: Session 
     return {"draft_context": draft_json}
 
 @router.post("/queries/with-context")
-def create_query_with_context(req: schemas.QueryCreateWithContext, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def create_query_with_context(req: schemas.QueryCreateWithContext, db: Session = Depends(get_db)):
     db_query = models.Query(
         vault_id=req.vault_id,
         title=req.title,
@@ -164,20 +164,42 @@ def create_query_with_context(req: schemas.QueryCreateWithContext, background_ta
     db.add(db_query)
     db.commit()
     db.refresh(db_query)
-    
+
     # Save approved context
     q_context = models.QueryContext(
-        query_id=db_query.id, 
-        context_json=req.context_json, 
+        query_id=db_query.id,
+        context_json=req.context_json,
         approval_status="approved"
     )
     db.add(q_context)
     db.commit()
-    
-    # Run organizer in background
+
+    # Index into ChromaDB
+    try:
+        from .services import vector_store as vs
+        vs.index_query(db_query.vault_id, db_query.id, db_query.title, db_query.description or "", db_query.sql_query, db_query.tags or "")
+    except Exception as e:
+        print(f"Vector indexing failed (non-fatal): {e}")
+
+    # NOTE: organize_intelligence is NOT called automatically here.
+    # The user must explicitly confirm via the frontend's Step 2 modal.
+    return {"message": "Query and Context saved.", "query_id": db_query.id}
+
+
+@router.post("/queries/preview-playbook-push")
+def preview_playbook_push(req: schemas.PlaybookPushPreviewRequest, db: Session = Depends(get_db)):
+    """Returns a preview of what organize_intelligence would write to playbooks,
+    without actually committing anything. The frontend uses this to show the user
+    a confirmation step before pushing to Rules / Schemas / Notes."""
+    preview = extraction.preview_organize_intelligence(db, req.vault_id, req.context_json)
+    return {"preview": preview}
+
+
+@router.post("/queries/confirm-playbook-push")
+def confirm_playbook_push(req: schemas.PlaybookPushPreviewRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """User confirmed the playbook push. Runs organize_intelligence in the background."""
     background_tasks.add_task(extraction.organize_intelligence, db, req.vault_id, req.context_json)
-    
-    return {"message": "Query and Context saved. Playbooks updating in background.", "query_id": db_query.id}
+    return {"message": "Playbook update queued."}
 
 @router.post("/queries")
 def create_query(query: schemas.QueryCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):

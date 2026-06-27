@@ -28,28 +28,42 @@ export default function App() {
   const [activeDialect, setActiveDialect] = useState<string>('snowflake');
   const [isInitialLoading, setIsInitialLoading] = useState(true); // true until first successful backend connect
 
-  // Fetch all metadata on mount — with retry if backend isn't ready yet
+  // Fetch all metadata on mount — with retry if backend isn't ready yet.
+  // Backend can take 20-30s on cold start (loads BGE embedding model).
+  // We retry for up to 40s before giving up and showing the real state.
   useEffect(() => {
     let attempts = 0;
-    const maxAttempts = 8;
-    const retryDelay = 1500;
+    const maxAttempts = 20;  // 20 × 2s = 40 seconds total patience
+    const retryDelay = 2000;
 
     const tryFetch = async () => {
       try {
         await fetchInitialData();
-        setIsInitialLoading(false); // backend responded — done loading
+        setIsInitialLoading(false);
       } catch (err) {
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(tryFetch, retryDelay);
         } else {
-          setIsInitialLoading(false); // give up retrying, show real state
-          console.error('Backend did not become ready after max retries.');
+          setIsInitialLoading(false); // backend never came up — show real state
+          console.error('Backend did not respond after max retries.');
         }
       }
     };
     tryFetch();
   }, []);
+
+  // Manual retry — triggered by the "Retry" button on the amber banner
+  const handleRetryConnect = async () => {
+    setIsInitialLoading(true);
+    try {
+      await fetchInitialData();
+    } catch (err) {
+      console.error('Manual retry failed:', err);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  };
 
   const fetchInitialData = async () => {
     // 1. Fetch vaults
@@ -330,12 +344,12 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
-        {/* Warning Banner: Loading state, No provider, or backend down */}
+        {/* Warning Banner: Connecting / No provider */}
         {isInitialLoading ? (
           <div className="bg-blue-50 border-b border-blue-200/80 px-6 py-2.5 flex items-center gap-2.5 text-blue-800 text-xs shadow-subtle select-none">
             <AlertCircle size={14} className="text-blue-500 shrink-0 animate-pulse" />
             <div className="flex-1">
-              <span className="font-bold">Connecting to backend...</span> Loading your saved configuration.
+              <span className="font-bold">Connecting to backend...</span> Loading your saved configuration — this may take up to 30 seconds on first start.
             </div>
           </div>
         ) : !hasActiveProvider ? (
@@ -344,7 +358,13 @@ export default function App() {
             <div className="flex-1">
               <span className="font-bold">No active LLM provider configured.</span> SlothQuery requires a provider to generate SQL logic. Click Settings to add one.
             </div>
-            <button 
+            <button
+              onClick={handleRetryConnect}
+              className="px-2.5 py-1 bg-white text-amber-700 border border-amber-300 rounded text-[10px] font-semibold hover:bg-amber-50 transition-colors"
+            >
+              Retry
+            </button>
+            <button
               onClick={() => setIsRightSidebarOpen(true)}
               className="px-2.5 py-1 bg-amber-600 text-white rounded text-[10px] font-semibold hover:bg-amber-700 shadow-subtle transition-colors"
             >
