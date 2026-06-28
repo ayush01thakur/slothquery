@@ -1,10 +1,45 @@
 import json
 import litellm
 import os
+import re
+import sqlglot
 from sqlalchemy.orm import Session
 from .. import models
 from .provider import get_active_provider_credentials
 from .retrieval import assemble_context
+
+def validate_sql_blocks(content: str, dialect: str) -> str:
+    """
+    Parses any SQL code blocks in the response using sqlglot for validation.
+    If a syntax error is found, it appends a helpful warning block below the SQL code block.
+    """
+    mapping = {
+        "postgresql": "postgres",
+        "snowflake": "snowflake",
+        "bigquery": "bigquery",
+        "trino": "trino",
+        "redshift": "redshift"
+    }
+    sg_dialect = mapping.get(dialect.lower(), dialect.lower())
+    
+    pattern = re.compile(r"```sql\s+(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+    
+    def replacer(match):
+        sql_text = match.group(1)
+        original_block = match.group(0)
+        try:
+            sqlglot.parse_one(sql_text, read=sg_dialect)
+            return original_block + f"\n\n> [!NOTE]\n> *✓ Syntactically validated for **{dialect.upper()}**.*"
+        except Exception as e:
+            error_details = str(e)
+            return original_block + (
+                f"\n\n> [!WARNING]\n"
+                f"> **Syntax warning for {dialect.upper()}**:\n"
+                f"> ```text\n{error_details}\n```\n"
+                f"> *Our response is syntactically validated for {dialect.upper()}; if you see an issue or need the query in another dialect format, please select another **Dialect** in the input settings and ask me to generate it again.*"
+            )
+            
+    return pattern.sub(replacer, content)
 
 def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> dict:
     """Orchestrates the chat process with context assembly."""
@@ -40,11 +75,17 @@ def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> 
     elif provider_type == "google":
         litellm.gemini_key = api_key
         os.environ["GEMINI_API_KEY"] = api_key
+        if not model_name.startswith("gemini/"):
+            model_name = f"gemini/{model_name}"
     elif provider_type == "groq":
         litellm.groq_key = api_key
         os.environ["GROQ_API_KEY"] = api_key
+        if not model_name.startswith("groq/"):
+            model_name = f"groq/{model_name}"
     elif provider_type == "deepseek":
         os.environ["DEEPSEEK_API_KEY"] = api_key
+        if not model_name.startswith("deepseek/"):
+            model_name = f"deepseek/{model_name}"
     elif provider_type == "openrouter":
         litellm.openrouter_key = api_key
         os.environ["OPENROUTER_API_KEY"] = api_key
@@ -111,19 +152,25 @@ def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> 
     {json.dumps(context["playbooks"], indent=2)}
 
     ### Conversational & Editing Persona (CRITICAL):
-    1. CONVERSE FIRST: You are a collaborative chat system, not just a query generator. When the user asks for an edit, reports an error, or asks a question, NEVER just silently output a query.
-    2. ACKNOWLEDGE & COLLABORATE: Always start your response conversationally. Acknowledge their exact request (e.g., "Ah, I understand! You want to group by region instead," or "Got it, let's remove that column to fix the error.").
-    3. BE AN EDITOR: The user relies on you to alter and edit their queries. If they say "change X to Y" or "I don't need Z", you MUST directly apply those edits to the query.
-    4. EXPLAIN CHANGES: Briefly explain exactly what you changed (or how you fixed an error) before providing the updated SQL block.
-    5. ASK FOR CLARIFICATION: If an error is ambiguous, or if you need to know more about their specific database tables to fix a bug, ASK the user directly. Do not guess blindly if it risks breaking the query further.
+    1. CONVERSE FIRST: You are a collaborative chat system, not an output thrower. Think, evaluate, and clarify.
+    2. CLARIFICATION VS. DIRECT GENERATION:
+       - When the user asks for a query: If the request has any ambiguities (e.g. which vaults, what date range, handling of combo SKUs, which subcategories to competing universe, missing filter inputs), do NOT just throw a query. First, ASK the user clarifying questions to get on the right track.
+       - Once the user answers your clarification, or if there is zero ambiguity, provide the query.
+       - If the user is asking to *understand* a concept (e.g. "how do I calculate weighted availability?" or "explain market share"): Give a theoretical explanation with a small modular CTE/code snippet showing the concept instead of writing the entire SQL query.
+    3. ACKNOWLEDGE & COLLABORATE: Always start your response conversationally. Acknowledge their exact request (e.g., "Ah, I understand! You want to group by region instead," or "Got it, let's remove that column to fix the error.").
+    4. BE AN EDITOR: The user relies on you to alter and edit their queries. If they say "change X to Y" or "I don't need Z", you MUST directly apply those edits to the query.
+    5. EXPLAIN CHANGES: Briefly explain exactly what you changed (or how you fixed an error) before providing the updated SQL block.
 
-    ### Query Generation Rules:
-    - Base your SQL generation purely on the organizational context above.
-    - Never invent tables, columns, metrics, or schemas.
-    - Provide executable SQL using full schema names if defined in context.
-    - Format all SQL queries inside triple backtick code blocks like ```sql ... ```.
-    - Use **bold** for key terms in your text responses.
-    - Do NOT use raw markdown asterisks in plain sentences — only use them for actual bold/italic formatting.
+    ### Query Generation Rules (CRITICAL):
+    1. SCHEMA TRACING: Before writing any SQL, trace every single column you intend to select to its physical table schema defined in the 'table_schemas' playbooks. Never assume a column exists in a table unless it is explicitly listed in its table schema.
+    2. METRIC FORMULAS: Check the 'business_rules' playbooks for formulas. If a metric (like 'Revenue' or 'Availability') is defined as a formula of other columns, you MUST compute it using the formula in your SQL query (e.g., `avg_price * units_sold_per_day` or `stores_with_availability / stores_carrying_sku`) instead of referencing the metric name as a raw column.
+    3. DIMENSION TRACING: If the user asks for regional or city-level metrics, check which tables contain regional/city columns (e.g. `region` or `city` is in `sku_analytics_city`, not `sku_analytics_national`). You must join the correct table for regional metrics.
+    4. REUSABLE PLAYBOOK ALIGNMENT: You must read, respect, and apply all business rules, playbooks, and analyst notes retrieved in the context above.
+    5. STRICT SCHEMA FIDELITY: Never invent tables, columns, metrics, or business rules. Use full qualified table names as defined in the schemas.
+    6. TRACE & PLAN: In your text response before the SQL block, write a brief bulleted "Trace & Plan" explaining:
+       - What tables/schemas you are using (verifying that they contain the columns).
+       - What formulas/rules you are applying from the playbooks.
+    7. SQL FORMATTING: Format all SQL queries inside triple backtick code blocks like ```sql ... ```. Use **bold** for key terms in your text responses. Do NOT use raw markdown asterisks in plain sentences — only use them for actual bold/italic formatting.
     """
     
     # Prepare history
@@ -147,7 +194,17 @@ def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> 
     except Exception as e:
         reply_content = f"Error: Failed to generate response from LLM provider. Details: {str(e)}"
     
-    # 3. Save AI message
+    # 3. Validate generated SQL using SQLGlot if SQL blocks exist
+    dialect = "snowflake"
+    if " (Use dialect: " in message:
+        try:
+            dialect = message.split(" (Use dialect: ")[1].split(")")[0]
+        except Exception:
+            pass
+            
+    reply_content = validate_sql_blocks(reply_content, dialect)
+    
+    # 4. Save AI message
     ai_msg = models.ChatMessage(chat_id=chat.id, role="assistant", content=reply_content)
     db.add(ai_msg)
     

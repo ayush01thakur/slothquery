@@ -52,6 +52,7 @@ class Playbook(Base):
     playbook_type = Column(String, nullable=False)
     name = Column(String, nullable=False)
     content = Column(Text, nullable=False)
+    always_include = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

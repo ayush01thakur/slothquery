@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 import os
+import json
 import shutil
 
 from ..database import get_db
@@ -176,8 +177,17 @@ def create_query_with_context(req: schemas.QueryCreateWithContext, db: Session =
 
     # Index into ChromaDB
     try:
-        from .services import vector_store as vs
-        vs.index_query(db_query.vault_id, db_query.id, db_query.title, db_query.description or "", db_query.sql_query, db_query.tags or "")
+        from ..services import vector_store as vs
+        import json
+        doc_text = db_query.sql_query
+        if req.context_json:
+            doc_text += "\n" + json.dumps(req.context_json)
+        vs.index_query(
+            vault_id=db_query.vault_id,
+            query_id=db_query.id,
+            document_text=doc_text,
+            metadata={"title": db_query.title}
+        )
     except Exception as e:
         print(f"Vector indexing failed (non-fatal): {e}")
 
@@ -236,7 +246,24 @@ def update_query_context(query_id: str, payload: dict, db: Session = Depends(get
         q_context.approval_status = payload["approval_status"]
         
     db.commit()
-    return {"message": "Query context updated successfully"}
+    
+    # Immediately re-index the updated query in ChromaDB
+    try:
+        query = db.query(models.Query).filter(models.Query.id == query_id).first()
+        if query:
+            doc_text = query.sql_query
+            if q_context.context_json:
+                doc_text += "\n" + json.dumps(q_context.context_json)
+            vs.index_query(
+                vault_id=query.vault_id,
+                query_id=query.id,
+                document_text=doc_text,
+                metadata={"title": query.title}
+            )
+    except Exception as e:
+        print(f"Error re-indexing query in ChromaDB on PUT context: {e}")
+        
+    return {"message": "Query context updated and vector index synchronized successfully"}
 
 @router.delete("/queries/{query_id}")
 def delete_query(query_id: str, db: Session = Depends(get_db)):
@@ -360,12 +387,15 @@ def create_or_update_playbook(payload: dict, db: Session = Depends(get_db)):
         pb.name = payload.get("name", pb.name)
         pb.playbook_type = payload.get("playbook_type", pb.playbook_type)
         pb.content = payload.get("content", pb.content)
+        if "always_include" in payload:
+            pb.always_include = payload["always_include"]
     else:
         pb = models.Playbook(
             vault_id=payload["vault_id"],
             playbook_type=payload["playbook_type"],
             name=payload["name"],
-            content=payload["content"]
+            content=payload["content"],
+            always_include=payload.get("always_include", False)
         )
         db.add(pb)
         

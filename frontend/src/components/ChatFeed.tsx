@@ -61,7 +61,21 @@ export default function ChatFeed({
   const [showPopover, setShowPopover] = useState(false);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (isLoading) {
+      setLoadingStep(0);
+      interval = setInterval(() => {
+        setLoadingStep(prev => (prev < 4 ? prev + 1 : prev));
+      }, 1500);
+    } else {
+      setLoadingStep(0);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const newChatTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -447,12 +461,28 @@ export default function ChatFeed({
             ))}
 
             {isLoading && (
-              <div className="self-start flex flex-col max-w-[85%] bg-white border border-slate-100 rounded-2xl rounded-tl-none p-4 shadow-subtle">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">SlothQuery</span>
-                <div className="flex gap-1.5 items-center py-1.5 px-1">
-                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" />
-                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]" />
-                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]" />
+              <div className="self-start flex flex-col max-w-[85%] bg-white border border-slate-100 rounded-2xl rounded-tl-none p-4 shadow-subtle min-w-[240px]">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2 select-none">
+                  SlothQuery Agent
+                </span>
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 font-medium select-none">
+                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                    <span>
+                      {loadingStep === 0 && "thinking..."}
+                      {loadingStep === 1 && "gathering relevant queries..."}
+                      {loadingStep === 2 && "gathering rules and notes..."}
+                      {loadingStep === 3 && "looking into logic in knowledge base..."}
+                      {loadingStep === 4 && "building query..."}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-600 transition-all duration-1000 ease-out rounded-full"
+                      style={{ width: `${(loadingStep + 1) * 20}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             )}

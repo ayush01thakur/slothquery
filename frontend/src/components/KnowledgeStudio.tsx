@@ -74,6 +74,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
   const [playbookFormId, setPlaybookFormId] = useState(''); // empty if creating new
   const [playbookTargetVaultId, setPlaybookTargetVaultId] = useState(vaultId || '');
   const [isPlaybookSubmitting, setIsPlaybookSubmitting] = useState(false);
+  const [playbookAlwaysInclude, setPlaybookAlwaysInclude] = useState(false);
 
   // Inline Vault Creation state
   const [showNewVaultInline, setShowNewVaultInline] = useState(false);
@@ -182,6 +183,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
     setPlaybookFormContent(pb.content);
     setPlaybookFormType(pb.playbook_type);
     setPlaybookTargetVaultId(pb.vault_id);
+    setPlaybookAlwaysInclude(pb.always_include || false);
   };
 
   const handleSaveContext = async () => {
@@ -308,14 +310,16 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
       setIsLoadingPreview(true);
       setShowPlaybookPushModal(true);
       try {
-        const previewRes = await axios.post('http://localhost:8000/api/queries/preview-playbook-push', {
+        const previewRes = await axios.post('http://127.0.0.1:8000/api/queries/preview-playbook-push', {
           vault_id: targetVaultId,
           context_json: finalContext
         });
         setPlaybookPushPreview(previewRes.data.preview || []);
-      } catch (previewErr) {
+      } catch (previewErr: any) {
         console.error('Preview failed:', previewErr);
         setPlaybookPushPreview([]);
+        setShowPlaybookPushModal(false);
+        alert(`Failed to analyze knowledge base updates: ${previewErr.response?.data?.detail || previewErr.message}`);
       } finally {
         setIsLoadingPreview(false);
       }
@@ -334,7 +338,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
   const handleConfirmPlaybookPush = async () => {
     setIsConfirmingPush(true);
     try {
-      await axios.post('http://localhost:8000/api/queries/confirm-playbook-push', {
+      await axios.post('http://127.0.0.1:8000/api/queries/confirm-playbook-push', {
         vault_id: savedVaultId,
         context_json: savedContextJson
       });
@@ -367,13 +371,14 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
         vault_id: playbookTargetVaultId,
         playbook_type: playbookFormType,
         name: playbookFormName,
-        content: playbookFormContent
+        content: playbookFormContent,
+        always_include: playbookAlwaysInclude
       };
       if (playbookFormId) {
         payload.id = playbookFormId;
       }
       
-      const res = await axios.post('http://localhost:8000/api/playbooks', payload);
+      const res = await axios.post('http://127.0.0.1:8000/api/playbooks', payload);
       
       alert(`Asset saved successfully!`);
       setShowAddPlaybookForm(false);
@@ -561,6 +566,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
                       setPlaybookFormContent('');
                       setPlaybookFormId('');
                       setPlaybookTargetVaultId(filterVaultId);
+                      setPlaybookAlwaysInclude(false);
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-1.5"
                   >
@@ -576,6 +582,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
                       setPlaybookFormContent('');
                       setPlaybookFormId('');
                       setPlaybookTargetVaultId(filterVaultId);
+                      setPlaybookAlwaysInclude(false);
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-1.5"
                   >
@@ -591,6 +598,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
                       setPlaybookFormContent('');
                       setPlaybookFormId('');
                       setPlaybookTargetVaultId(filterVaultId);
+                      setPlaybookAlwaysInclude(false);
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-1.5"
                   >
@@ -938,6 +946,19 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
                 />
               </div>
 
+              <div className="flex items-center gap-2 py-1 select-none">
+                <input
+                  type="checkbox"
+                  id="always_include"
+                  checked={playbookAlwaysInclude}
+                  onChange={(e) => setPlaybookAlwaysInclude(e.target.checked)}
+                  className="rounded border-slate-350 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer bg-white"
+                />
+                <label htmlFor="always_include" className="text-xs text-slate-650 font-medium cursor-pointer">
+                  Always include this asset in the chat retrieval context (disables dynamic requirement filtering)
+                </label>
+              </div>
+
               <div className="flex justify-between items-center mt-2">
                 <div>
                   {playbookFormId && (
@@ -976,42 +997,51 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
         {/* QUERY DETAIL PANEL */}
         {selectedQuery && !showAddForm && !showAddPlaybookForm && (
           <div className="max-w-4xl flex flex-col gap-6">
-            <div className="flex items-start justify-between border-b pb-4">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-slate-800">{selectedQuery.title}</h3>
-                  <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded tracking-wide">{selectedQuery.dialect}</span>
+            <div className="flex flex-col gap-3 border-b pb-4">
+              <div className="grid grid-cols-10 gap-4 items-start">
+                {/* 40% Title Block */}
+                <div className="col-span-4 flex flex-col gap-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg font-bold text-slate-800 leading-snug">{selectedQuery.title}</h3>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded tracking-wide whitespace-nowrap">{selectedQuery.dialect}</span>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500">{selectedQuery.description || 'No description provided.'}</p>
+
+                {/* 60% Action Buttons */}
+                <div className="col-span-6 flex items-center justify-end gap-2 mt-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Status:</span>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="text-xs border rounded bg-white px-2 py-1.5 font-semibold text-slate-700 focus:outline-none shadow-subtle max-w-[200px]"
+                  >
+                    <option value="draft">Draft (Extracting/Reviewing)</option>
+                    <option value="approved">Approved (High Rank)</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <button
+                    onClick={handleSaveContext}
+                    disabled={isSaving}
+                    className="text-xs bg-slate-900 text-white font-semibold px-3 py-1.5 rounded hover:bg-slate-800 flex items-center gap-1.5 shadow-subtle disabled:opacity-50 transition-colors whitespace-nowrap"
+                  >
+                    {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    Save Context
+                  </button>
+                  <button
+                    onClick={handleDeleteQuery}
+                    title="Delete this query"
+                    className="text-xs text-rose-600 border border-rose-200 hover:bg-rose-50 font-semibold px-2.5 py-1.5 rounded flex items-center gap-1 transition-colors whitespace-nowrap"
+                  >
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  className="text-xs border rounded bg-white px-2 py-1.5 font-semibold text-slate-700 focus:outline-none"
-                >
-                  <option value="draft">Draft (Extracting/Reviewing)</option>
-                  <option value="approved">Approved (High Rank Retrieval)</option>
-                  <option value="archived">Archived</option>
-                </select>
-                <button
-                  onClick={handleSaveContext}
-                  disabled={isSaving}
-                  className="text-xs bg-slate-900 text-white font-semibold px-3 py-1.5 rounded hover:bg-slate-800 flex items-center gap-1.5 shadow-subtle disabled:opacity-50 transition-colors"
-                >
-                  {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                  Save Context
-                </button>
-                <button
-                  onClick={handleDeleteQuery}
-                  title="Delete this query"
-                  className="text-xs text-rose-600 border border-rose-200 hover:bg-rose-50 font-semibold px-2.5 py-1.5 rounded flex items-center gap-1 transition-colors"
-                >
-                  <Trash2 size={12} />
-                  Delete
-                </button>
-              </div>
+              {/* Description underneath (full width) */}
+              {selectedQuery.description && (
+                <p className="text-xs text-slate-500 leading-relaxed mt-1">{selectedQuery.description}</p>
+              )}
             </div>
 
             {/* SQL Content */}
@@ -1175,9 +1205,18 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
             <div className="flex items-start justify-between border-b pb-4">
               <div className="flex flex-col gap-1">
                 <h3 className="text-lg font-bold text-slate-800">{selectedPlaybook.name}</h3>
-                <span className="text-[9px] uppercase font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded tracking-wide w-fit">
-                  {selectedPlaybook.playbook_type === 'business_rules' ? 'Business Rule' : selectedPlaybook.playbook_type === 'table_schemas' ? 'Schema Definition' : 'Analyst Note'}
-                </span>
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-[9px] uppercase font-bold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded tracking-wide w-fit">
+                    {selectedPlaybook.playbook_type === 'business_rules' ? 'Business Rule' : selectedPlaybook.playbook_type === 'table_schemas' ? 'Schema Definition' : 'Analyst Note'}
+                  </span>
+                  <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded tracking-wide w-fit border ${
+                    selectedPlaybook.always_include 
+                      ? 'text-blue-700 bg-blue-50 border-blue-200/50' 
+                      : 'text-slate-600 bg-slate-100 border-slate-200/50'
+                  }`}>
+                    {selectedPlaybook.always_include ? 'Always Included' : 'Requirement Based'}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -1187,6 +1226,7 @@ export default function KnowledgeStudio({ vaultId, vaults, onCreateVault, onDele
                   setPlaybookFormContent(selectedPlaybook.content);
                   setPlaybookFormType(selectedPlaybook.playbook_type);
                   setPlaybookTargetVaultId(selectedPlaybook.vault_id);
+                  setPlaybookAlwaysInclude(selectedPlaybook.always_include || false);
                 }}
                 className="text-xs border hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded font-semibold flex items-center gap-1.5 shadow-subtle transition-colors"
               >

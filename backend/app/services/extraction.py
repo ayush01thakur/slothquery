@@ -60,9 +60,9 @@ def call_llm_for_json(model_name: str, messages: list) -> str:
                 return response.choices[0].message.content or "{}"
             except Exception as e2:
                 print(f"LLM call failed on fallback: {e2}")
-                return "{}"
+                raise e2
         print(f"LLM call failed: {e}")
-        return "{}"
+        raise e
 
 def parse_sql(sql: str, dialect: str) -> dict:
     """Uses sqlglot to extract fully-qualified table names, columns, and aggregates.
@@ -123,17 +123,12 @@ def parse_sql(sql: str, dialect: str) -> dict:
 
     return parsed
 
-def generate_draft_intelligence(db: Session, vault_id: str, title: str, description: str, sql_query: str, sql_comments: str, dialect: str) -> dict:
-    """Calls LiteLLM to generate the draft intelligence JSON based on SQL, comments, and playbooks without saving the query."""
-    creds = get_active_provider_credentials(db)
-    if not creds:
-        raise ValueError("No active provider configured.")
-        
+def _bind_provider_credentials(creds: dict) -> str:
+    """Helper to dynamically bind active provider credentials for LiteLLM calls."""
     provider_type = creds["provider_type"].lower()
-    model_name = creds["model_name"]
     api_key = creds["api_key"]
+    model_name = creds["model_name"]
     
-    # Bind environment keys and litellm attributes dynamically
     if provider_type == "openai":
         litellm.api_key = api_key
         os.environ["OPENAI_API_KEY"] = api_key
@@ -143,11 +138,17 @@ def generate_draft_intelligence(db: Session, vault_id: str, title: str, descript
     elif provider_type == "google":
         litellm.gemini_key = api_key
         os.environ["GEMINI_API_KEY"] = api_key
+        if not model_name.startswith("gemini/"):
+            model_name = f"gemini/{model_name}"
     elif provider_type == "groq":
         litellm.groq_key = api_key
         os.environ["GROQ_API_KEY"] = api_key
+        if not model_name.startswith("groq/"):
+            model_name = f"groq/{model_name}"
     elif provider_type == "deepseek":
         os.environ["DEEPSEEK_API_KEY"] = api_key
+        if not model_name.startswith("deepseek/"):
+            model_name = f"deepseek/{model_name}"
     elif provider_type == "openrouter":
         litellm.openrouter_key = api_key
         os.environ["OPENROUTER_API_KEY"] = api_key
@@ -155,6 +156,17 @@ def generate_draft_intelligence(db: Session, vault_id: str, title: str, descript
             model_name = f"openrouter/{model_name}"
     else:
         litellm.api_key = api_key
+        
+    return model_name
+
+
+def generate_draft_intelligence(db: Session, vault_id: str, title: str, description: str, sql_query: str, sql_comments: str, dialect: str) -> dict:
+    """Calls LiteLLM to generate the draft intelligence JSON based on SQL, comments, and playbooks without saving the query."""
+    creds = get_active_provider_credentials(db)
+    if not creds:
+        raise ValueError("No active provider configured.")
+        
+    model_name = _bind_provider_credentials(creds)
 
     # Fetch stored playbooks/rules in this vault to establish relations
     playbooks = db.query(models.Playbook).filter(models.Playbook.vault_id == vault_id).all()
@@ -190,10 +202,14 @@ Format:
         f"Auto-parsed tables & columns: {json.dumps(parsed_data)}"
     )
 
-    content = call_llm_for_json(model_name, [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ])
+    try:
+        content = call_llm_for_json(model_name, [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ])
+    except Exception as e:
+        print(f"Draft intelligence LLM call failed, using fallback: {e}")
+        content = "{}"
 
     parsed_json = extract_json(content)
 
@@ -278,23 +294,32 @@ def preview_organize_intelligence(db: Session, vault_id: str, approved_intellige
     if not creds:
         return []
 
-    model_name = creds["model_name"]
-    if creds["provider_type"].lower() == "openrouter" and not model_name.startswith("openrouter/"):
-        model_name = f"openrouter/{model_name}"
+    model_name = _bind_provider_credentials(creds)
 
     playbooks = db.query(models.Playbook).filter(models.Playbook.vault_id == vault_id).all()
     current_docs = [{"id": pb.id, "name": pb.name, "type": pb.playbook_type, "content": pb.content} for pb in playbooks]
 
     system_prompt, user_prompt = _build_organizer_prompt(current_docs, approved_intelligence)
 
-    content = call_llm_for_json(model_name, [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ])
+    from fastapi import HTTPException
+    try:
+        content = call_llm_for_json(model_name, [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ])
+    except Exception as e:
+        print(f"Playbook preview LLM call failed: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"LLM Provider Error: {str(e)}"
+        )
 
     instructions = extract_json(content)
     if not instructions:
-        return []
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to parse structured JSON updates from the LLM provider."
+        )
 
     return instructions.get("updates", [])
 
@@ -309,19 +334,21 @@ def organize_intelligence(db: Session, vault_id: str, approved_intelligence: dic
     if not creds:
         return
 
-    model_name = creds["model_name"]
-    if creds["provider_type"].lower() == "openrouter" and not model_name.startswith("openrouter/"):
-        model_name = f"openrouter/{model_name}"
+    model_name = _bind_provider_credentials(creds)
 
     playbooks = db.query(models.Playbook).filter(models.Playbook.vault_id == vault_id).all()
     current_docs = [{"id": pb.id, "name": pb.name, "type": pb.playbook_type, "content": pb.content} for pb in playbooks]
 
     system_prompt, user_prompt = _build_organizer_prompt(current_docs, approved_intelligence)
 
-    content = call_llm_for_json(model_name, [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ])
+    try:
+        content = call_llm_for_json(model_name, [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ])
+    except Exception as e:
+        print(f"Organizer Agent failed: {e}")
+        return
 
     instructions = extract_json(content)
     if not instructions:

@@ -88,6 +88,7 @@ class PlaybookBase(BaseModel):
     name: str
     playbook_type: str
     content: str
+    always_include: Optional[bool] = False
 
 class PlaybookCreate(PlaybookBase):
     vault_id: str

@@ -15,6 +15,12 @@ with engine.connect() as conn:
         conn.commit()
     except Exception:
         pass
+    
+    try:
+        conn.execute(text("ALTER TABLE playbooks ADD COLUMN always_include BOOLEAN DEFAULT 0"))
+        conn.commit()
+    except Exception:
+        pass
 
 app = FastAPI(title="SlothQuery API", description="Local-first organizational intelligence platform")
 

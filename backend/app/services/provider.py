@@ -31,6 +31,11 @@ def test_provider_connection(provider_type: str, model_name: str, api_key: str) 
         litellm.anthropic_key = api_key
     elif provider_type == "google":
         litellm.gemini_key = api_key
+    elif provider_type == "groq":
+        litellm.groq_key = api_key
+    elif provider_type == "deepseek":
+        # deepseek api key
+        pass
     elif provider_type == "openrouter":
         litellm.openrouter_key = api_key
     else:
@@ -40,6 +45,12 @@ def test_provider_connection(provider_type: str, model_name: str, api_key: str) 
         model_path = model_name
         if provider_type == "openrouter" and not model_name.startswith("openrouter/"):
             model_path = f"openrouter/{model_name}"
+        elif provider_type == "groq" and not model_name.startswith("groq/"):
+            model_path = f"groq/{model_name}"
+        elif provider_type == "deepseek" and not model_name.startswith("deepseek/"):
+            model_path = f"deepseek/{model_name}"
+        elif provider_type == "google" and not model_name.startswith("gemini/"):
+            model_path = f"gemini/{model_name}"
             
         # Quick completion test
         litellm.completion(

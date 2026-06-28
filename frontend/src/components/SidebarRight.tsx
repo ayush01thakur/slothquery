@@ -2,6 +2,30 @@ import React, { useState } from 'react';
 import { X, Plus, Key, Cpu, Shield, RefreshCw, Download, Upload, Trash2, Check, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 
+const getApiKeyLabel = (type: string) => {
+  switch (type) {
+    case 'openai': return 'OpenAI API Key';
+    case 'anthropic': return 'Anthropic API Key';
+    case 'google': return 'Google Gemini API Key';
+    case 'groq': return 'Groq API Key';
+    case 'openrouter': return 'OpenRouter API Key';
+    case 'deepseek': return 'DeepSeek API Key';
+    default: return 'API Key';
+  }
+};
+
+const getModelPlaceholder = (type: string) => {
+  switch (type) {
+    case 'openai': return 'e.g. gpt-4o, gpt-4o-mini';
+    case 'anthropic': return 'e.g. claude-3-5-sonnet-20241022';
+    case 'google': return 'e.g. gemini-1.5-flash, gemini-1.5-pro';
+    case 'groq': return 'e.g. llama-3.3-70b-versatile, mixtral-8x7b-32768';
+    case 'openrouter': return 'e.g. google/gemma-2-9b-it:free';
+    case 'deepseek': return 'e.g. deepseek-chat';
+    default: return 'e.g. model-name';
+  }
+};
+
 interface SidebarRightProps {
   isOpen: boolean;
   onClose: () => void;
@@ -194,20 +218,20 @@ export default function SidebarRight({
                   type="text"
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value)}
-                  placeholder="e.g. meta-llama/llama-3.3-70b-instruct:free"
+                  placeholder={getModelPlaceholder(providerType)}
                   className="text-xs border rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white font-mono"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-0.5">
-                <label className="text-[10px] font-bold text-slate-500">API Key</label>
+                <label className="text-[10px] font-bold text-slate-500">{getApiKeyLabel(providerType)}</label>
                 <div className="relative">
                   <input
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter Key"
+                    placeholder={`Enter ${getApiKeyLabel(providerType)}`}
                     className="text-xs border rounded p-1.5 w-full pr-7 focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white"
                     required
                   />
