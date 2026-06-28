@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # SlothQuery v1.0
 
@@ -91,20 +91,30 @@ Storage (SQLite + ChromaDB)
 
 ## Getting Started
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- An API key from any supported LLM provider
-
-### 1. Clone the repository
+### Option 1: Quick Install (Recommended)
+You can install and run SlothQuery directly from PyPI as a global CLI tool. No cloning or Node.js compilation required:
 
 ```bash
-git clone https://github.com/your-username/slothquery.git
+# Install the package
+pip install slothquery
+
+# Start the application from any directory
+slothquery
+```
+*This starts the local FastAPI server and automatically opens your default web browser to the dashboard at `http://127.0.0.1:8000`.*
+
+---
+
+### Option 2: Local Developer Setup (Clone & Run)
+If you want to modify the source code, run integration tests, or contribute to the frontend layout:
+
+#### 1. Clone the repository
+```bash
+git clone https://github.com/ayush01thakur/slothquery.git
 cd slothquery
 ```
 
-### 2. Set up the Backend
-
+#### 2. Set up the Backend
 ```bash
 cd backend
 
@@ -123,21 +133,17 @@ pip install -r requirements.txt
 # Start the backend server
 uvicorn app.main:app --reload --port 8000
 ```
+> Note: First run automatically downloads the local BGE-small-en-v1.5 embedding model weights (~130MB).
 
-> First run downloads the BGE-small-en-v1.5 embedding model (~130MB). Subsequent starts are fast.
+API documentation is interactive at: `http://127.0.0.1:8000/docs`
 
-API available at: `http://127.0.0.1:8000`
-Interactive docs: `http://127.0.0.1:8000/docs`
-
-### 3. Set up the Frontend
-
+#### 3. Set up the Frontend
 ```bash
-cd frontend
+cd ../frontend
 npm install
 npm run dev
 ```
-
-App available at: `http://localhost:3000`
+App developer server available at: `http://localhost:3000`
 
 ---
 

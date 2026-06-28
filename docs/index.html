@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SlothQuery — Local-First Organizational Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+          },
+          boxShadow: {
+            'minimal': '0 8px 30px rgb(0 0 0 / 0.015), 0 0 0 1px rgb(0 0 0 / 0.03)',
+            'hover': '0 12px 40px rgb(0 0 0 / 0.03), 0 0 0 1px rgb(0 0 0 / 0.04)',
+            'btn': '0 4px 14px 0 rgba(0,0,0,0.05)',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-[#fcfcfc] text-[#111111] font-sans selection:bg-slate-900 selection:text-white overflow-x-hidden antialiased">
+
+  <!-- Minimal Header / Nav -->
+  <nav class="w-full border-b border-[#f0f0f0] bg-[#fcfcfc]/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-6 w-6 rounded bg-black flex items-center justify-center text-white font-extrabold text-[10px] tracking-tighter select-none">SQ</div>
+        <span class="font-extrabold text-base tracking-tight select-none">slothquery.</span>
+      </div>
+      <div class="flex items-center gap-8">
+        <a href="#features" class="text-xs font-medium text-slate-400 hover:text-black transition-colors">Features</a>
+        <a href="#install" class="text-xs font-medium text-slate-400 hover:text-black transition-colors">Install</a>
+        <a href="https://github.com/ayush01thakur/slothquery" target="_blank" class="text-xs font-bold border border-black px-4 py-2 rounded-full hover:bg-black hover:text-white transition-all duration-300 shadow-sm flex items-center gap-1.5">
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section (Massive Modern Typography) -->
+  <header class="max-w-6xl mx-auto px-6 sm:px-8 pt-32 pb-24 flex flex-col items-start text-left">
+    
+    <!-- Premium Badge -->
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#ececec] bg-[#f7f7f7] text-[9px] uppercase tracking-wider font-extrabold text-slate-400 mb-8 select-none">
+      <span class="h-1.5 w-1.5 rounded-full bg-slate-900"></span>
+      100% Local-First
+    </div>
+    
+    <!-- Big Text Heading (Thinner, SQL bold, scripts simple) -->
+    <h1 class="text-4xl sm:text-[5.5rem] font-light tracking-tighter leading-[1.05] text-[#111111] max-w-5xl mb-8">
+      Knowledge is everywhere <br />
+      so is in your business' <br />
+      <span class="font-black text-[#111111]">SQL</span> scripts
+    </h1>
+    
+    <!-- Sub-text update -->
+    <p class="text-base sm:text-lg text-slate-500 max-w-3xl leading-relaxed mb-12 font-light">
+      SlothQuery transforms SQL queries, schema constraints, and business logic rules into a searchable knowledge base. Designed for analysts and anyone in the organization who wants to understand and write their business-specific SQL with accuracy and speed.
+    </p>
+
+    <!-- Console Copy-paste Block (No Alert, Direct Copy with UI state) -->
+    <div class="w-full max-w-lg mb-4 select-all cursor-pointer group" onclick="copyInstallCommand()">
+      <div class="flex items-center justify-between bg-white border border-[#e5e5e5] rounded-2xl p-4 shadow-minimal group-hover:shadow-hover transition-all duration-300">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-bold text-slate-300 select-none">$</span>
+          <code class="font-mono text-xs sm:text-sm text-slate-800 tracking-tight font-medium" id="command-text">pip install slothquery</code>
+        </div>
+        <div class="flex items-center gap-1.5 text-slate-455 group-hover:text-black transition-colors">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+          <span class="text-[10px] font-bold uppercase tracking-wider" id="copy-btn-text">Copy</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live PyPI Version Badge -->
+    <div class="flex items-center gap-2 mb-12 select-none">
+      <img src="https://img.shields.io/pypi/v/slothquery?color=black&label=PyPI%20package" alt="PyPI Package" class="h-5" />
+      <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Live package active on PyPI</span>
+    </div>
+
+    <!-- CTA Links -->
+    <div class="flex items-center gap-6">
+      <a href="https://github.com/ayush01thakur/slothquery/tree/main" target="_blank" class="text-xs font-bold bg-black text-white px-8 py-3.5 rounded-full hover:bg-slate-800 transition-all hover:scale-[1.02] shadow-btn">
+        Explore Codebase
+      </a>
+      <a href="https://github.com/ayush01thakur/slothquery/archive/refs/heads/main.zip" class="text-xs font-semibold text-slate-400 hover:text-black transition-colors flex items-center gap-1.5">
+        Download ZIP package
+      </a>
+    </div>
+  </header>
+
+  <!-- Split Pillar Showcase Section (01, 02, 03, 04) -->
+  <section id="features" class="max-w-6xl mx-auto px-6 sm:px-8 py-24 border-t border-[#f0f0f0]">
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-8">
+      <h2 class="text-4xl font-extrabold tracking-tighter leading-none text-black">
+        Analytical Integrity. <br />
+        <span class="text-slate-400">Zero database leaks.</span>
+      </h2>
+      <p class="text-xs text-slate-400 font-semibold max-w-xs uppercase tracking-wider leading-relaxed">
+        Everything runs locally on your workstation. No external API feeds can view your private schema structures.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+      
+      <!-- Feature 01 -->
+      <div class="flex flex-col">
+        <span class="text-5xl font-black tracking-tighter text-[#eaeaea] mb-4 select-none">01</span>
+        <h3 class="text-sm font-bold text-black mb-3">Context Pruning</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Automatically maps and restricts schema feeds to only include definitions related to the user's specific request. Keep prompts tidy.
+        </p>
+      </div>
+
+      <!-- Feature 02 -->
+      <div class="flex flex-col">
+        <span class="text-5xl font-black tracking-tighter text-[#eaeaea] mb-4 select-none">02</span>
+        <h3 class="text-sm font-bold text-black mb-3">Dialect Validation</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Syntactic verification checks run in the background using SQLGlot, ensuring generated logic fits Trino, Snowflake, or PostgreSQL rules.
+        </p>
+      </div>
+
+      <!-- Feature 03 -->
+      <div class="flex flex-col">
+        <span class="text-5xl font-black tracking-tighter text-[#eaeaea] mb-4 select-none">03</span>
+        <h3 class="text-sm font-bold text-black mb-3">Instant Re-indexing</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Editing query context or playbooks triggers real-time ChromaDB updates. Human revisions take top-rank retrieval priority instantly.
+        </p>
+      </div>
+
+      <!-- Feature 04 -->
+      <div class="flex flex-col">
+        <span class="text-5xl font-black tracking-tighter text-[#eaeaea] mb-4 select-none">04</span>
+        <h3 class="text-sm font-bold text-black mb-3">Portable User Data</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Application logic separates cleanly from user data. Database and vectors reside inside your home directory. Updates won't affect files.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Step Installation Guide (Updated Steps & Added Step 4) -->
+  <section id="install" class="max-w-6xl mx-auto px-6 sm:px-8 py-24 border-t border-[#f0f0f0]">
+    <div class="text-left mb-20">
+      <h2 class="text-3xl font-extrabold tracking-tighter text-black mb-2">Getting Started</h2>
+      <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Set up SlothQuery locally in four quick steps.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+      
+      <!-- Step 1 -->
+      <div class="flex flex-col">
+        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">1</div>
+        <h3 class="text-xs font-bold text-black mb-2">Install Package</h3>
+        <p class="text-xs leading-relaxed text-slate-500">
+          Open your standard command line interface (Terminal or CMD) and execute:
+          <code class="font-mono text-[10px] bg-slate-100 text-slate-800 px-1 py-0.5 rounded block mt-2 w-fit">pip install slothquery</code>
+        </p>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="flex flex-col">
+        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">2</div>
+        <h3 class="text-xs font-bold text-black mb-2">Launch & Configure API</h3>
+        <p class="text-xs leading-relaxed text-slate-500">
+          Start the application:
+          <code class="font-mono text-[10px] bg-slate-100 text-slate-800 px-1 py-0.5 rounded block mt-2 w-fit">slothquery</code>
+          This opens your default browser. Go to settings / configurations to set your LLM API provider, test the connection, and save it.
+        </p>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="flex flex-col">
+        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">3</div>
+        <h3 class="text-xs font-bold text-black mb-2">Build or Import Knowledge</h3>
+        <p class="text-xs leading-relaxed text-slate-500">
+          Build your analytical knowledge base inside the Knowledge Studio, or go to Settings & Configurations to import a `.slothkb` file shared by someone in your organization.
+        </p>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="flex flex-col">
+        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">4</div>
+        <h3 class="text-xs font-bold text-black mb-2">Chat & Understand Logics</h3>
+        <p class="text-xs leading-relaxed text-slate-500">
+          Start messaging the agent to generate custom SQL queries, understand business metrics formulas, or inspect table relationships with context-aware accuracy.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Clean Minimal Footer -->
+  <footer class="bg-white border-t border-[#f0f0f0] py-20">
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-12">
+      
+      <!-- Brand & Copy -->
+      <div class="flex flex-col gap-2 items-center sm:items-start">
+        <div class="flex items-center gap-2">
+          <div class="h-5 w-5 rounded bg-black flex items-center justify-center text-white font-extrabold text-[9px] tracking-tighter select-none">SQ</div>
+          <span class="font-extrabold text-sm tracking-tight text-black select-none">slothquery.</span>
+        </div>
+        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Designed and built by Ayush Kumar Thakur</p>
+      </div>
+
+      <!-- Mail & Social Redirects -->
+      <div class="flex flex-col sm:flex-row items-center gap-8 text-xs font-bold text-slate-400">
+        <a href="mailto:thakur8ayush@gmail.com" class="hover:text-black flex items-center gap-1.5 transition-colors">
+          Email
+        </a>
+        <a href="https://www.linkedin.com/in/ayush-kumar-thakur-ba6402252/" target="_blank" class="hover:text-black flex items-center gap-1.5 transition-colors">
+          LinkedIn
+        </a>
+        <a href="https://github.com/ayush01thakur" target="_blank" class="hover:text-black flex items-center gap-1.5 transition-colors">
+          GitHub Profile
+        </a>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Inline Copy Script (Direct Clipboard Copying) -->
+  <script>
+    function copyInstallCommand() {
+      const commandText = "pip install slothquery";
+      navigator.clipboard.writeText(commandText).then(() => {
+        const copyBtnText = document.getElementById("copy-btn-text");
+        copyBtnText.innerText = "Copied!";
+        setTimeout(() => {
+          copyBtnText.innerText = "Copy";
+        }, 2000);
+      }).catch(err => {
+        console.error("Failed to copy command: ", err);
+      });
+    }
+  </script>
+
+</body>
+</html>
