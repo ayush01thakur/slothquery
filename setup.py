@@ -10,7 +10,7 @@ if os.path.exists(requirements_path):
 
 setup(
     name="slothquery",
-    version="1.0.0",
+    version="1.0.1",
     description="Local-first organizational intelligence platform",
     author="Ayush Thakur",
     author_email="ayush01thakur@gmail.com",
