@@ -1,16 +1,9 @@
 from setuptools import setup, find_packages
 import os
 
-# Read requirements from backend/requirements.txt
-requirements_path = os.path.join("backend", "requirements.txt")
-requirements = []
-if os.path.exists(requirements_path):
-    with open(requirements_path, "r") as f:
-        requirements = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-
 setup(
     name="slothquery",
-    version="1.0.1",
+    version="1.0.2",
     description="Local-first organizational intelligence platform",
     author="Ayush Thakur",
     author_email="ayush01thakur@gmail.com",
@@ -21,7 +14,18 @@ setup(
         # Bundle all compiled React frontend files in the python package
         "app": ["dist/**/*", "dist/*", "dist/assets/*"],
     },
-    install_requires=requirements,
+    install_requires=[
+        "fastapi",
+        "uvicorn",
+        "pydantic",
+        "sqlalchemy",
+        "cryptography",
+        "chromadb",
+        "litellm",
+        "sentence-transformers",
+        "sqlglot",
+        "python-multipart",
+    ],
     entry_points={
         "console_scripts": [
             "slothquery=app.cli:main",
