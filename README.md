@@ -1,6 +1,6 @@
 ﻿<div align="center">
 
-# SlothQuery
+# SlothQuery v1.0
 
 **Local-first organizational intelligence platform for SQL engineers and data analysts.**
 
