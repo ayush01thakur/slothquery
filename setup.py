@@ -3,7 +3,7 @@ import os
 
 setup(
     name="slothquery",
-    version="1.0.7",
+    version="1.0.6",
     description="Local-first organizational intelligence platform",
     author="Ayush Thakur",
     author_email="ayush01thakur@gmail.com",
