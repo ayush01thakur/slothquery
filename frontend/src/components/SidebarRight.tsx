@@ -34,8 +34,9 @@ interface SidebarRightProps {
   onAddProvider: (prov: any) => void;
   onSetActiveProvider: (id: string) => void;
   onDeleteProvider: (id: string) => void;
-  onReindex: () => void;
+  onReindex: () => Promise<void>;
   isReindexing: boolean;
+  onImportSuccess: (vaultId: string) => void;
 }
 
 export default function SidebarRight({
@@ -47,7 +48,8 @@ export default function SidebarRight({
   onSetActiveProvider,
   onDeleteProvider,
   onReindex,
-  isReindexing
+  isReindexing,
+  onImportSuccess
 }: SidebarRightProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   
@@ -62,6 +64,11 @@ export default function SidebarRight({
   
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState('');
+
+  // Import analysis & confirm modal state
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -126,20 +133,58 @@ export default function SidebarRight({
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImportMessage('Importing...');
+    setImportMessage('Analyzing backup file...');
     setImportError('');
     
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      await axios.post('http://127.0.0.1:8000/api/import', formData, {
+      const res = await axios.post('http://127.0.0.1:8000/api/import/analyze', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
-      setImportMessage('Imported successfully! Rebuilding vector store...');
-      await onReindex();
+      setImportMessage('');
+      setAnalysisData(res.data);
+      setPendingFile(file);
+
+      const hasDuplicates = 
+        res.data.duplicates.vaults.length > 0 ||
+        res.data.duplicates.queries.length > 0 ||
+        res.data.duplicates.playbooks.length > 0;
+
+      if (hasDuplicates) {
+        setShowConfirmModal(true);
+      } else {
+        await executeImport(file);
+      }
+    } catch (err: any) {
+      setImportError(err.response?.data?.detail || 'Analysis failed');
+      setImportMessage('');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const executeImport = async (file: File) => {
+    setImportMessage('Importing & indexing knowledge base...');
+    setImportError('');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await axios.post('http://127.0.0.1:8000/api/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      if (res.data.active_vault_ids && res.data.active_vault_ids.length > 0) {
+        onImportSuccess(res.data.active_vault_ids[0]);
+      }
+      
       setImportMessage('Import completed successfully!');
       setTimeout(() => {
         setImportMessage('');
@@ -147,6 +192,10 @@ export default function SidebarRight({
     } catch (err: any) {
       setImportError(err.response?.data?.detail || 'Import failed');
       setImportMessage('');
+    } finally {
+      setShowConfirmModal(false);
+      setPendingFile(null);
+      setAnalysisData(null);
     }
   };
 
@@ -386,6 +435,76 @@ export default function SidebarRight({
       <div className="p-4 border-t bg-slate-50 flex items-center justify-center">
         <span className="text-[10px] text-slate-400 tracking-wider font-semibold">SLOTHQUERY v1.0 — LOCAL ONLY</span>
       </div>
+
+      {showConfirmModal && analysisData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg border shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 border-b flex items-center gap-2 bg-slate-50">
+              <AlertTriangle className="text-amber-500 animate-pulse" size={20} />
+              <h3 className="font-bold text-slate-800 text-sm">Duplicate Data Detected</h3>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-4 flex-1 overflow-y-auto max-h-64 text-xs text-slate-600 space-y-3 leading-relaxed">
+              <p className="font-medium text-slate-800">
+                The uploaded Knowledge Base contains elements that already exist in your local database:
+              </p>
+              
+              {analysisData.duplicates.vaults.length > 0 && (
+                <div className="bg-amber-50/50 border border-amber-100 p-2.5 rounded">
+                  <span className="font-semibold text-amber-800 block mb-1">Existing Vaults (will merge & override description):</span>
+                  <ul className="list-disc list-inside space-y-0.5 text-amber-700 pl-1 font-mono text-[10px]">
+                    {analysisData.duplicates.vaults.map((v: string) => <li key={v}>{v}</li>)}
+                  </ul>
+                </div>
+              )}
+              
+              {analysisData.duplicates.queries.length > 0 && (
+                <div className="bg-amber-50/50 border border-amber-100 p-2.5 rounded">
+                  <span className="font-semibold text-amber-800 block mb-1">Duplicate Queries (SQL & Contexts will be overridden):</span>
+                  <ul className="list-disc list-inside space-y-0.5 text-amber-700 pl-1 font-mono text-[10px]">
+                    {analysisData.duplicates.queries.map((q: string) => <li key={q}>{q}</li>)}
+                  </ul>
+                </div>
+              )}
+              
+              {analysisData.duplicates.playbooks.length > 0 && (
+                <div className="bg-amber-50/50 border border-amber-100 p-2.5 rounded">
+                  <span className="font-semibold text-amber-800 block mb-1">Duplicate Rules, Schemas & Notes (will be overridden):</span>
+                  <ul className="list-disc list-inside space-y-0.5 text-amber-700 pl-1 font-mono text-[10px]">
+                    {analysisData.duplicates.playbooks.map((p: string) => <li key={p}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded border border-slate-100 italic">
+                <strong>Warning:</strong> If you wish to preserve your current database state, please export your knowledge base first. Proceeding will overwrite existing duplicate items and append the new ones.
+              </div>
+            </div>
+            
+            {/* Modal Actions */}
+            <div className="p-3 border-t bg-slate-50 flex items-center justify-end gap-2 text-xs">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setPendingFile(null);
+                  setAnalysisData(null);
+                }}
+                className="px-3 py-1.5 border rounded hover:bg-slate-100 text-slate-600 font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => pendingFile && executeImport(pendingFile)}
+                className="px-3 py-1.5 bg-black hover:bg-slate-800 text-white rounded font-semibold shadow transition-colors"
+              >
+                Proceed & Overwrite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

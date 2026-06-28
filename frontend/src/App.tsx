@@ -167,17 +167,111 @@ export default function App() {
     setChatMessages(prev => [...prev, tempUserMsg]);
     setIsChatLoading(true);
 
+    const tempAssistantId = Math.random().toString();
+    let assistantMsgAdded = false;
+    let streamedContent = '';
+
     try {
-      await axios.post(`${API_BASE}/chats/${activeChatId}/messages`, {
-        message: `${content} (Use dialect: ${activeDialect})`,
-        vault_ids: activeVaultIds
+      const response = await fetch(`${API_BASE}/chats/${activeChatId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `${content} (Use dialect: ${activeDialect})`,
+          vault_ids: activeVaultIds
+        })
       });
-      
+
+      if (!response.ok || !response.body) {
+        let errorDetail = 'Failed to get response from LLM provider.';
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.detail || errorDetail;
+        } catch {}
+        throw new Error(errorDetail);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        let hasNewTokens = false;
+
+        for (const event of events) {
+          for (const line of event.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.token) {
+                streamedContent += data.token;
+                hasNewTokens = true;
+              } else if (data.done) {
+                // Final validated content (includes SQL validation notes)
+                const finalContent = data.content;
+                if (!assistantMsgAdded) {
+                  setChatMessages(prev => [...prev, {
+                    id: tempAssistantId,
+                    role: 'assistant',
+                    content: finalContent,
+                    created_at: new Date().toISOString()
+                  }]);
+                  assistantMsgAdded = true;
+                } else {
+                  setChatMessages(prev => prev.map(m =>
+                    m.id === tempAssistantId ? { ...m, content: finalContent } : m
+                  ));
+                }
+              } else if (data.error) {
+                const errContent = data.error;
+                if (!assistantMsgAdded) {
+                  setChatMessages(prev => [...prev, {
+                    id: tempAssistantId,
+                    role: 'assistant',
+                    content: errContent,
+                    created_at: new Date().toISOString()
+                  }]);
+                  assistantMsgAdded = true;
+                } else {
+                  setChatMessages(prev => prev.map(m =>
+                    m.id === tempAssistantId ? { ...m, content: errContent } : m
+                  ));
+                }
+              }
+            } catch {}
+          }
+        }
+
+        // Batch-update streaming tokens once per read chunk
+        if (hasNewTokens) {
+          const currentContent = streamedContent;
+          if (!assistantMsgAdded) {
+            setChatMessages(prev => [...prev, {
+              id: tempAssistantId,
+              role: 'assistant',
+              content: currentContent,
+              created_at: new Date().toISOString()
+            }]);
+            assistantMsgAdded = true;
+          } else {
+            setChatMessages(prev => prev.map(m =>
+              m.id === tempAssistantId ? { ...m, content: currentContent } : m
+            ));
+          }
+        }
+      }
+
       // Refresh chat list to update titles if it was auto-named
       const cRes = await axios.get(`${API_BASE}/chats`);
       setChats(cRes.data);
       
-      await fetchChatMessages(activeChatId);
     } catch (err: any) {
       console.error(err);
       
@@ -189,11 +283,13 @@ export default function App() {
         console.error('Failed to refresh chats after error:', fetchErr);
       }
 
-      setChatMessages(prev => [...prev, {
-        id: Math.random().toString(),
-        role: 'assistant',
-        content: `Error: ${err.response?.data?.detail || 'Failed to get response from LLM provider.'}`
-      }]);
+      if (!assistantMsgAdded) {
+        setChatMessages(prev => [...prev, {
+          id: tempAssistantId,
+          role: 'assistant',
+          content: `Error: ${err.message || 'Failed to get response from LLM provider.'}`
+        }]);
+      }
     } finally {
       setIsChatLoading(false);
     }
@@ -305,13 +401,19 @@ export default function App() {
     setIsReindexing(true);
     try {
       await axios.post(`${API_BASE}/reindex`);
-      alert('Local semantic search vector store rebuilt successfully!');
+      await fetchInitialData();
     } catch (err) {
       console.error(err);
-      alert('Reindexing failed.');
     } finally {
       setIsReindexing(false);
     }
+  };
+
+  const handleImportSuccess = async (vaultId: string) => {
+    await fetchInitialData();
+    setActiveVaultId(vaultId);
+    setActiveView('studio');
+    setIsRightSidebarOpen(false);
   };
 
   const hasActiveProvider = providers.some(p => p.is_active);
@@ -412,6 +514,7 @@ export default function App() {
         onDeleteProvider={handleDeleteProvider}
         onReindex={handleReindex}
         isReindexing={isReindexing}
+        onImportSuccess={handleImportSuccess}
       />
     </div>
   );

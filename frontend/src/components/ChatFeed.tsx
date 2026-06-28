@@ -460,7 +460,7 @@ export default function ChatFeed({
               </div>
             ))}
 
-            {isLoading && (
+            {isLoading && !(messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.content) && (
               <div className="self-start flex flex-col max-w-[85%] bg-white border border-slate-100 rounded-2xl rounded-tl-none p-4 shadow-subtle min-w-[240px]">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2 select-none">
                   SlothQuery Agent

@@ -30,95 +30,206 @@ def export_knowledge_base(db: Session, export_dir: str):
     return file_path
 
 def import_knowledge_base(db: Session, slothkb_path: str):
-    """Imports .slothkb file, populates SQLite, and regenerates BGE embeddings locally."""
+    """Imports .slothkb file, populates SQLite with deduplication, and regenerates BGE embeddings locally."""
     with zipfile.ZipFile(slothkb_path, 'r') as zf:
         with zf.open("queries_and_contexts.json") as f:
             data = json.loads(f.read().decode("utf-8"))
             
+    vault_id_map = {}  # maps old_vault_id -> active_vault_id
+    query_id_map = {}  # maps old_query_id -> active_query_id
+            
     # 1. Populate SQLite Database
     # Import Vaults
     for v_data in data.get("vaults", []):
-        existing_vault = db.query(models.Vault).filter(models.Vault.id == v_data["id"]).first()
-        if not existing_vault:
-            created_at = datetime.fromisoformat(v_data["created_at"]) if "created_at" in v_data else datetime.utcnow()
+        # Case-insensitive name match
+        existing_vault = db.query(models.Vault).filter(
+            models.Vault.name.ilike(v_data["name"])
+        ).first()
+        
+        if existing_vault:
+            existing_vault.description = v_data.get("description", "")
+            vault_id_map[v_data["id"]] = existing_vault.id
+        else:
+            try:
+                created_at = datetime.fromisoformat(v_data["created_at"]) if "created_at" in v_data else datetime.utcnow()
+            except Exception:
+                created_at = datetime.utcnow()
             vault = models.Vault(
-                id=v_data["id"],
                 name=v_data["name"],
                 description=v_data.get("description", ""),
                 created_at=created_at
             )
             db.add(vault)
-        else:
-            existing_vault.name = v_data["name"]
-            existing_vault.description = v_data.get("description", "")
+            db.flush() # Generate ID
+            vault_id_map[v_data["id"]] = vault.id
             
     # Import Queries
     for q_data in data.get("queries", []):
-        existing_query = db.query(models.Query).filter(models.Query.id == q_data["id"]).first()
-        if not existing_query:
+        target_vault_id = vault_id_map.get(q_data["vault_id"])
+        if not target_vault_id:
+            continue
+            
+        # Case-insensitive title match inside target vault
+        existing_query = db.query(models.Query).filter(
+            models.Query.vault_id == target_vault_id,
+            models.Query.title.ilike(q_data["title"])
+        ).first()
+        
+        if existing_query:
+            existing_query.sql_query = q_data["sql_query"]
+            existing_query.sql_comments = q_data.get("sql_comments", "")
+            existing_query.dialect = q_data.get("dialect", "Snowflake")
+            query_id_map[q_data["id"]] = existing_query.id
+        else:
             query = models.Query(
-                id=q_data["id"],
-                vault_id=q_data["vault_id"],
+                vault_id=target_vault_id,
                 title=q_data["title"],
                 sql_query=q_data["sql_query"],
                 sql_comments=q_data.get("sql_comments", ""),
                 dialect=q_data.get("dialect", "Snowflake")
             )
             db.add(query)
-        else:
-            existing_query.title = q_data["title"]
-            existing_query.sql_query = q_data["sql_query"]
-            existing_query.sql_comments = q_data.get("sql_comments", "")
-            existing_query.dialect = q_data.get("dialect", "Snowflake")
+            db.flush() # Generate ID
+            query_id_map[q_data["id"]] = query.id
             
     # Import Contexts
     for c_data in data.get("contexts", []):
-        existing_context = db.query(models.QueryContext).filter(models.QueryContext.query_id == c_data["query_id"]).first()
-        if not existing_context:
+        target_query_id = query_id_map.get(c_data["query_id"])
+        if not target_query_id:
+            continue
+            
+        existing_context = db.query(models.QueryContext).filter(
+            models.QueryContext.query_id == target_query_id
+        ).first()
+        
+        if existing_context:
+            existing_context.context_json = c_data["context_json"]
+            existing_context.approval_status = c_data.get("approval_status", "approved")
+        else:
             context = models.QueryContext(
-                query_id=c_data["query_id"],
+                query_id=target_query_id,
                 context_json=c_data["context_json"],
                 approval_status=c_data.get("approval_status", "approved")
             )
             db.add(context)
-        else:
-            existing_context.context_json = c_data["context_json"]
-            existing_context.approval_status = c_data.get("approval_status", "approved")
             
     # Import Playbooks
     for p_data in data.get("playbooks", []):
-        existing_playbook = db.query(models.Playbook).filter(models.Playbook.id == p_data["id"]).first()
-        if not existing_playbook:
+        target_vault_id = vault_id_map.get(p_data["vault_id"])
+        if not target_vault_id:
+            continue
+            
+        # Match by name and type inside target vault
+        existing_playbook = db.query(models.Playbook).filter(
+            models.Playbook.vault_id == target_vault_id,
+            models.Playbook.name.ilike(p_data["name"]),
+            models.Playbook.playbook_type == p_data["playbook_type"]
+        ).first()
+        
+        if existing_playbook:
+            existing_playbook.content = p_data["content"]
+        else:
             playbook = models.Playbook(
-                id=p_data["id"],
-                vault_id=p_data["vault_id"],
+                vault_id=target_vault_id,
                 name=p_data["name"],
                 playbook_type=p_data["playbook_type"],
                 content=p_data["content"]
             )
             db.add(playbook)
-        else:
-            existing_playbook.name = p_data["name"]
-            existing_playbook.playbook_type = p_data["playbook_type"]
-            existing_playbook.content = p_data["content"]
             
     db.commit()
 
     # 2. Iterate and trigger embedding regeneration
     for q in data.get("queries", []):
-        # We need the context for this query
+        target_vault_id = vault_id_map.get(q["vault_id"])
+        target_query_id = query_id_map.get(q["id"])
+        if not target_vault_id or not target_query_id:
+            continue
+            
         context = next((c for c in data.get("contexts", []) if c["query_id"] == q["id"]), None)
         
         doc_text = q["sql_query"]
         if context:
             doc_text += "\n" + json.dumps(context["context_json"])
             
-        # Rebuild local embedding in ChromaDB
         index_query(
-            vault_id=q["vault_id"],
-            query_id=q["id"],
+            vault_id=target_vault_id,
+            query_id=target_query_id,
             document_text=doc_text,
             metadata={"title": q["title"]}
         )
     
-    return True
+    # Return list of active vault IDs
+    return {"active_vault_ids": list(vault_id_map.values())}
+
+def analyze_knowledge_base(db: Session, slothkb_path: str):
+    """Analyzes .slothkb file and returns counts of new vs duplicate elements."""
+    with zipfile.ZipFile(slothkb_path, 'r') as zf:
+        with zf.open("queries_and_contexts.json") as f:
+            data = json.loads(f.read().decode("utf-8"))
+            
+    vault_id_map = {}
+    duplicates = {
+        "vaults": [],
+        "queries": [],
+        "playbooks": []
+    }
+    new_elements = {
+        "vaults": [],
+        "queries": [],
+        "playbooks": []
+    }
+    
+    # 1. Analyze Vaults
+    for v_data in data.get("vaults", []):
+        existing_vault = db.query(models.Vault).filter(
+            models.Vault.name.ilike(v_data["name"])
+        ).first()
+        if existing_vault:
+            duplicates["vaults"].append(v_data["name"])
+            vault_id_map[v_data["id"]] = existing_vault.id
+        else:
+            new_elements["vaults"].append(v_data["name"])
+            vault_id_map[v_data["id"]] = "new_vault"
+            
+    # 2. Analyze Queries
+    for q_data in data.get("queries", []):
+        target_vault_id = vault_id_map.get(q_data["vault_id"])
+        if not target_vault_id:
+            continue
+        
+        if target_vault_id == "new_vault":
+            new_elements["queries"].append(q_data["title"])
+        else:
+            existing_query = db.query(models.Query).filter(
+                models.Query.vault_id == target_vault_id,
+                models.Query.title.ilike(q_data["title"])
+            ).first()
+            if existing_query:
+                duplicates["queries"].append(q_data["title"])
+            else:
+                new_elements["queries"].append(q_data["title"])
+                
+    # 3. Analyze Playbooks
+    for p_data in data.get("playbooks", []):
+        target_vault_id = vault_id_map.get(p_data["vault_id"])
+        if not target_vault_id:
+            continue
+            
+        if target_vault_id == "new_vault":
+            new_elements["playbooks"].append(f"{p_data['playbook_type']}: {p_data['name']}")
+        else:
+            existing_playbook = db.query(models.Playbook).filter(
+                models.Playbook.vault_id == target_vault_id,
+                models.Playbook.name.ilike(p_data["name"]),
+                models.Playbook.playbook_type == p_data["playbook_type"]
+            ).first()
+            if existing_playbook:
+                duplicates["playbooks"].append(f"{p_data['playbook_type']}: {p_data['name']}")
+            else:
+                new_elements["playbooks"].append(f"{p_data['playbook_type']}: {p_data['name']}")
+                
+    return {
+        "duplicates": duplicates,
+        "new": new_elements
+    }

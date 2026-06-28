@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -326,14 +327,16 @@ def send_message_to_chat(chat_id: str, payload: dict, db: Session = Depends(get_
         
     if not msg:
         raise HTTPException(status_code=400, detail="Missing message")
-        
-    try:
-        res = chat.process_chat_message(db, chat_id, vault_ids, msg)
-        return res
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    return StreamingResponse(
+        chat.stream_chat_message(db, chat_id, vault_ids, msg),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @router.put("/chats/{chat_id}", response_model=schemas.ChatResponse)
 def update_chat(chat_id: str, payload: dict, db: Session = Depends(get_db)):
@@ -426,6 +429,24 @@ def export_db(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
+@router.post("/import/analyze")
+def analyze_import(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    temp_dir = os.path.join(os.path.expanduser("~"), "Documents", "SlothQuery", "Temp")
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_file_path = os.path.join(temp_dir, file.filename)
+    
+    with open(temp_file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    try:
+        analysis = export_import.analyze_knowledge_base(db, temp_file_path)
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+    finally:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+
 @router.post("/import")
 def import_db(file: UploadFile = File(...), db: Session = Depends(get_db)):
     temp_dir = os.path.join(os.path.expanduser("~"), "Documents", "SlothQuery", "Temp")
@@ -436,8 +457,11 @@ def import_db(file: UploadFile = File(...), db: Session = Depends(get_db)):
         shutil.copyfileobj(file.file, buffer)
         
     try:
-        export_import.import_knowledge_base(db, temp_file_path)
-        return {"message": "Knowledge base imported and embeddings regenerated successfully"}
+        res = export_import.import_knowledge_base(db, temp_file_path)
+        return {
+            "message": "Knowledge base imported and embeddings regenerated successfully",
+            "active_vault_ids": res["active_vault_ids"]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
     finally:

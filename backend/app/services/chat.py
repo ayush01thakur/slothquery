@@ -3,6 +3,7 @@ import litellm
 import os
 import re
 import sqlglot
+from datetime import datetime
 from sqlalchemy.orm import Session
 from .. import models
 from .provider import get_active_provider_credentials
@@ -41,31 +42,13 @@ def validate_sql_blocks(content: str, dialect: str) -> str:
             
     return pattern.sub(replacer, content)
 
-def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> dict:
-    """Orchestrates the chat process with context assembly."""
-    chat = db.query(models.Chat).filter(models.Chat.id == chat_id).first()
-    if not chat:
-        raise ValueError("Chat not found")
-        
-    # If vault_ids is provided, save it to the chat
-    if vault_ids is not None:
-        chat.vault_ids = vault_ids
-        db.commit()
-        
-    active_vault_ids = chat.vault_ids or []
-    if not active_vault_ids:
-        all_vaults = db.query(models.Vault).all()
-        active_vault_ids = [v.id for v in all_vaults]
-        
-    creds = get_active_provider_credentials(db)
-    if not creds:
-        raise ValueError("No active provider configured")
-        
+
+def _configure_provider(creds):
+    """Internal helper: configures litellm and env vars for the active provider. Returns model_name."""
     provider_type = creds["provider_type"].lower()
     model_name = creds["model_name"]
     api_key = creds["api_key"]
-    
-    # Configure key environment variables and litellm attributes dynamically
+
     if provider_type == "openai":
         litellm.api_key = api_key
         os.environ["OPENAI_API_KEY"] = api_key
@@ -93,55 +76,13 @@ def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> 
             model_name = f"openrouter/{model_name}"
     else:
         litellm.api_key = api_key
-        
-    # Auto-name chat on the user's first message
-    existing_msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.chat_id == chat_id).count()
-    if existing_msg_count <= 1 and chat.title == "New Chat":
-        # Remove dialect instruction helper text from message first if present
-        clean_msg = message
-        if " (Use dialect:" in message:
-            clean_msg = message.split(" (Use dialect:")[0]
-        # Generate summary title based on cleaned first user query
-        sliced_title = clean_msg[:40] + "..." if len(clean_msg) > 40 else clean_msg
-        chat.title = sliced_title
-        db.commit()
 
-    # 1. Save user message
-    user_msg = models.ChatMessage(chat_id=chat.id, role="user", content=message)
-    db.add(user_msg)
-    db.commit()
-    
-    # 2. Assemble context
-    context = assemble_context(db, active_vault_ids, message)
+    return model_name
 
-    # --- Empty knowledge base guard ---
-    # If there are no queries and no playbooks in the active vaults, the AI
-    # has nothing grounded to draw from. Return a helpful onboarding message
-    # instead of letting the LLM hallucinate or ask confusing SQL questions.
-    has_queries = bool(context.get("semantic_queries"))
-    has_playbooks = bool(context.get("playbooks"))
 
-    if not has_queries and not has_playbooks:
-        greeting = (
-            "👋 Hey there! I'm SlothQuery — your organizational analytics assistant.\n\n"
-            "It looks like your knowledge base is empty right now, so I don't have any "
-            "queries, business rules, or schema context to work with yet.\n\n"
-            "Here's how to get started:\n"
-            "1. Go to **Knowledge Studio** in the left sidebar.\n"
-            "2. Add your SQL queries, business rules, table schemas, or analyst notes.\n"
-            "3. Once your knowledge base has some context, come back here and I'll be able to "
-            "help you write precise, grounded SQL based on your organization's actual data.\n\n"
-            "The more context you build, the smarter and more accurate my responses become. 🚀"
-        )
-        ai_msg = models.ChatMessage(chat_id=chat.id, role="assistant", content=greeting)
-        db.add(ai_msg)
-        from datetime import datetime
-        chat.last_interacted_at = datetime.utcnow()
-        db.commit()
-        return {"role": "assistant", "content": greeting}
-    # --- End empty knowledge base guard ---
-
-    system_prompt = f"""
+def _build_system_prompt(context):
+    """Internal helper: builds the system prompt from assembled context."""
+    return f"""
     You are SlothQuery, an organizational intelligence AI acting as a senior analytics engineer.
     You are having a conversation with a user to help them build, refine, and debug SQL queries.
 
@@ -172,6 +113,76 @@ def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> 
        - What formulas/rules you are applying from the playbooks.
     7. SQL FORMATTING: Format all SQL queries inside triple backtick code blocks like ```sql ... ```. Use **bold** for key terms in your text responses. Do NOT use raw markdown asterisks in plain sentences — only use them for actual bold/italic formatting.
     """
+
+
+_EMPTY_KB_GREETING = (
+    "👋 Hey there! I'm SlothQuery — your organizational analytics assistant.\n\n"
+    "It looks like your knowledge base is empty right now, so I don't have any "
+    "queries, business rules, or schema context to work with yet.\n\n"
+    "Here's how to get started:\n"
+    "1. Go to **Knowledge Studio** in the left sidebar.\n"
+    "2. Add your SQL queries, business rules, table schemas, or analyst notes.\n"
+    "3. Once your knowledge base has some context, come back here and I'll be able to "
+    "help you write precise, grounded SQL based on your organization's actual data.\n\n"
+    "The more context you build, the smarter and more accurate my responses become. 🚀"
+)
+
+
+def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> dict:
+    """Orchestrates the chat process with context assembly."""
+    chat = db.query(models.Chat).filter(models.Chat.id == chat_id).first()
+    if not chat:
+        raise ValueError("Chat not found")
+        
+    # If vault_ids is provided, save it to the chat
+    if vault_ids is not None:
+        chat.vault_ids = vault_ids
+        db.commit()
+        
+    active_vault_ids = chat.vault_ids or []
+    if not active_vault_ids:
+        all_vaults = db.query(models.Vault).all()
+        active_vault_ids = [v.id for v in all_vaults]
+        
+    creds = get_active_provider_credentials(db)
+    if not creds:
+        raise ValueError("No active provider configured")
+
+    model_name = _configure_provider(creds)
+        
+    # Auto-name chat on the user's first message
+    existing_msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.chat_id == chat_id).count()
+    if existing_msg_count <= 1 and chat.title == "New Chat":
+        # Remove dialect instruction helper text from message first if present
+        clean_msg = message
+        if " (Use dialect:" in message:
+            clean_msg = message.split(" (Use dialect:")[0]
+        # Generate summary title based on cleaned first user query
+        sliced_title = clean_msg[:40] + "..." if len(clean_msg) > 40 else clean_msg
+        chat.title = sliced_title
+        db.commit()
+
+    # 1. Save user message
+    user_msg = models.ChatMessage(chat_id=chat.id, role="user", content=message)
+    db.add(user_msg)
+    db.commit()
+    
+    # 2. Assemble context
+    context = assemble_context(db, active_vault_ids, message)
+
+    # --- Empty knowledge base guard ---
+    has_queries = bool(context.get("semantic_queries"))
+    has_playbooks = bool(context.get("playbooks"))
+
+    if not has_queries and not has_playbooks:
+        ai_msg = models.ChatMessage(chat_id=chat.id, role="assistant", content=_EMPTY_KB_GREETING)
+        db.add(ai_msg)
+        chat.last_interacted_at = datetime.utcnow()
+        db.commit()
+        return {"role": "assistant", "content": _EMPTY_KB_GREETING}
+    # --- End empty knowledge base guard ---
+
+    system_prompt = _build_system_prompt(context)
     
     # Prepare history
     history = [{"role": "system", "content": system_prompt}]
@@ -209,9 +220,133 @@ def process_chat_message(db: Session, chat_id: str, vault_ids, message: str) -> 
     db.add(ai_msg)
     
     # Update chat interaction time
-    from datetime import datetime
     chat.last_interacted_at = datetime.utcnow()
     
     db.commit()
     
     return {"role": "assistant", "content": reply_content}
+
+
+def stream_chat_message(db: Session, chat_id: str, vault_ids, message: str):
+    """Generator that yields SSE events for streaming chat responses.
+    
+    Performs the same logic as process_chat_message:
+    - Saves user message
+    - Assembles retrieval context
+    - Auto-names chat
+    - Handles empty KB guard
+    
+    But streams the LLM response token-by-token via Server-Sent Events.
+    SQL validation and DB persistence happen after the full stream completes.
+    """
+    chat = db.query(models.Chat).filter(models.Chat.id == chat_id).first()
+    if not chat:
+        yield f"data: {json.dumps({'error': 'Chat not found'})}\n\n"
+        return
+
+    # If vault_ids is provided, save it to the chat
+    if vault_ids is not None:
+        chat.vault_ids = vault_ids
+        db.commit()
+
+    active_vault_ids = chat.vault_ids or []
+    if not active_vault_ids:
+        all_vaults = db.query(models.Vault).all()
+        active_vault_ids = [v.id for v in all_vaults]
+
+    creds = get_active_provider_credentials(db)
+    if not creds:
+        yield f"data: {json.dumps({'error': 'No active provider configured. Please add a provider in Settings.'})}\n\n"
+        return
+
+    model_name = _configure_provider(creds)
+
+    # Auto-name chat on the user's first message
+    existing_msg_count = db.query(models.ChatMessage).filter(
+        models.ChatMessage.chat_id == chat_id
+    ).count()
+    if existing_msg_count <= 1 and chat.title == "New Chat":
+        clean_msg = message
+        if " (Use dialect:" in message:
+            clean_msg = message.split(" (Use dialect:")[0]
+        sliced_title = clean_msg[:40] + "..." if len(clean_msg) > 40 else clean_msg
+        chat.title = sliced_title
+        db.commit()
+
+    # 1. Save user message
+    user_msg = models.ChatMessage(chat_id=chat.id, role="user", content=message)
+    db.add(user_msg)
+    db.commit()
+
+    # 2. Assemble context (retrieval pipeline — decomposition, semantic search, playbooks)
+    context = assemble_context(db, active_vault_ids, message)
+
+    # --- Empty knowledge base guard ---
+    has_queries = bool(context.get("semantic_queries"))
+    has_playbooks = bool(context.get("playbooks"))
+
+    if not has_queries and not has_playbooks:
+        ai_msg = models.ChatMessage(chat_id=chat.id, role="assistant", content=_EMPTY_KB_GREETING)
+        db.add(ai_msg)
+        chat.last_interacted_at = datetime.utcnow()
+        db.commit()
+        yield f"data: {json.dumps({'done': True, 'content': _EMPTY_KB_GREETING})}\n\n"
+        return
+
+    # 3. Build system prompt with assembled context
+    system_prompt = _build_system_prompt(context)
+
+    # Prepare history
+    history = [{"role": "system", "content": system_prompt}]
+    db_messages = db.query(models.ChatMessage).filter(
+        models.ChatMessage.chat_id == chat_id
+    ).order_by(models.ChatMessage.created_at).limit(10).all()
+    for m in db_messages:
+        history.append({"role": m.role, "content": m.content})
+
+    # 4. Stream LLM completion
+    try:
+        response = litellm.completion(
+            model=model_name,
+            messages=history,
+            stream=True
+        )
+
+        full_content = ""
+        for chunk in response:
+            delta = chunk.choices[0].delta
+            if hasattr(delta, "content") and delta.content:
+                token = delta.content
+                full_content += token
+                yield f"data: {json.dumps({'token': token})}\n\n"
+
+        if not full_content:
+            full_content = "I'm sorry, I received an empty response from the AI provider. Please try again."
+
+        # 5. Validate SQL blocks after full response is collected
+        dialect = "snowflake"
+        if " (Use dialect: " in message:
+            try:
+                dialect = message.split(" (Use dialect: ")[1].split(")")[0]
+            except Exception:
+                pass
+
+        validated_content = validate_sql_blocks(full_content, dialect)
+
+        # 6. Save validated assistant message to DB
+        ai_msg = models.ChatMessage(chat_id=chat.id, role="assistant", content=validated_content)
+        db.add(ai_msg)
+        chat.last_interacted_at = datetime.utcnow()
+        db.commit()
+
+        # 7. Send final event with validated content (may include SQL validation notes)
+        yield f"data: {json.dumps({'done': True, 'content': validated_content})}\n\n"
+
+    except Exception as e:
+        error_content = f"Error: Failed to generate response from LLM provider. Details: {str(e)}"
+        ai_msg = models.ChatMessage(chat_id=chat.id, role="assistant", content=error_content)
+        db.add(ai_msg)
+        chat.last_interacted_at = datetime.utcnow()
+        db.commit()
+        yield f"data: {json.dumps({'error': error_content})}\n\n"
+
