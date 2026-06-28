@@ -30,12 +30,81 @@ def export_knowledge_base(db: Session, export_dir: str):
     return file_path
 
 def import_knowledge_base(db: Session, slothkb_path: str):
-    """Imports .slothkb file and regenerates BGE embeddings locally."""
+    """Imports .slothkb file, populates SQLite, and regenerates BGE embeddings locally."""
     with zipfile.ZipFile(slothkb_path, 'r') as zf:
         with zf.open("queries_and_contexts.json") as f:
             data = json.loads(f.read().decode("utf-8"))
             
-    # Iterate and trigger embedding regeneration
+    # 1. Populate SQLite Database
+    # Import Vaults
+    for v_data in data.get("vaults", []):
+        existing_vault = db.query(models.Vault).filter(models.Vault.id == v_data["id"]).first()
+        if not existing_vault:
+            created_at = datetime.fromisoformat(v_data["created_at"]) if "created_at" in v_data else datetime.utcnow()
+            vault = models.Vault(
+                id=v_data["id"],
+                name=v_data["name"],
+                description=v_data.get("description", ""),
+                created_at=created_at
+            )
+            db.add(vault)
+        else:
+            existing_vault.name = v_data["name"]
+            existing_vault.description = v_data.get("description", "")
+            
+    # Import Queries
+    for q_data in data.get("queries", []):
+        existing_query = db.query(models.Query).filter(models.Query.id == q_data["id"]).first()
+        if not existing_query:
+            query = models.Query(
+                id=q_data["id"],
+                vault_id=q_data["vault_id"],
+                title=q_data["title"],
+                sql_query=q_data["sql_query"],
+                sql_comments=q_data.get("sql_comments", ""),
+                dialect=q_data.get("dialect", "Snowflake")
+            )
+            db.add(query)
+        else:
+            existing_query.title = q_data["title"]
+            existing_query.sql_query = q_data["sql_query"]
+            existing_query.sql_comments = q_data.get("sql_comments", "")
+            existing_query.dialect = q_data.get("dialect", "Snowflake")
+            
+    # Import Contexts
+    for c_data in data.get("contexts", []):
+        existing_context = db.query(models.QueryContext).filter(models.QueryContext.query_id == c_data["query_id"]).first()
+        if not existing_context:
+            context = models.QueryContext(
+                query_id=c_data["query_id"],
+                context_json=c_data["context_json"],
+                approval_status=c_data.get("approval_status", "approved")
+            )
+            db.add(context)
+        else:
+            existing_context.context_json = c_data["context_json"]
+            existing_context.approval_status = c_data.get("approval_status", "approved")
+            
+    # Import Playbooks
+    for p_data in data.get("playbooks", []):
+        existing_playbook = db.query(models.Playbook).filter(models.Playbook.id == p_data["id"]).first()
+        if not existing_playbook:
+            playbook = models.Playbook(
+                id=p_data["id"],
+                vault_id=p_data["vault_id"],
+                name=p_data["name"],
+                playbook_type=p_data["playbook_type"],
+                content=p_data["content"]
+            )
+            db.add(playbook)
+        else:
+            existing_playbook.name = p_data["name"]
+            existing_playbook.playbook_type = p_data["playbook_type"]
+            existing_playbook.content = p_data["content"]
+            
+    db.commit()
+
+    # 2. Iterate and trigger embedding regeneration
     for q in data.get("queries", []):
         # We need the context for this query
         context = next((c for c in data.get("contexts", []) if c["query_id"] == q["id"]), None)

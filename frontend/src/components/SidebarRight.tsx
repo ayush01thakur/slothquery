@@ -139,7 +139,11 @@ export default function SidebarRight({
         }
       });
       setImportMessage('Imported successfully! Rebuilding vector store...');
-      onReindex();
+      await onReindex();
+      setImportMessage('Import completed successfully!');
+      setTimeout(() => {
+        setImportMessage('');
+      }, 4000);
     } catch (err: any) {
       setImportError(err.response?.data?.detail || 'Import failed');
       setImportMessage('');
