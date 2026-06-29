@@ -381,45 +381,57 @@
   <!-- Guide to Utilize Knowledge Studio -->
   <section id="guide" class="max-w-6xl mx-auto px-6 sm:px-8 py-24 border-t border-[#f0f0f0]">
     <div class="text-left mb-16">
-      <h2 class="text-3xl font-extrabold tracking-tighter text-black mb-2">Utilizing Knowledge Studio at its Best</h2>
-      <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Pro-tips for building a high-fidelity organizational brain for SlothQuery.</p>
+      <h2 class="text-3xl font-extrabold tracking-tighter text-black mb-2">Guide to Utilizing Knowledge Studio</h2>
+      <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">A comprehensive walkthrough of the platform features to unlock maximum accuracy.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
       
-      <!-- Tip 1 -->
+      <!-- Feature 1: Vaults & Dialects -->
       <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
         <div class="flex items-center gap-2 mb-4">
           <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">01</span>
-          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Annotate Before Uploading</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Segmentation & Validation</span>
         </div>
-        <h3 class="text-sm font-bold text-black mb-3">Comment Your Code</h3>
+        <h3 class="text-sm font-bold text-black mb-3">Isolate with Vaults & Set Dialects</h3>
         <p class="text-xs leading-relaxed text-slate-500 font-medium">
-          Add descriptive comments directly next to CTEs, complex join filters, or metrics calculations in your SQL files before importing. The parser scans these inline notes to accurately map business logic.
+          Create separate <strong class="font-semibold text-black">Vaults</strong> to organize queries, notes, and rules by business function (e.g., Marketing vs. Finance). When querying, choose your SQL <strong class="font-semibold text-black">Dialect</strong> (Snowflake, PostgreSQL, BigQuery, etc.) in the chat panel to instantly trigger dialect-specific background syntax validation.
         </p>
       </div>
 
-      <!-- Tip 2 -->
+      <!-- Feature 2: CTE Comments & Table Schemas -->
       <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
         <div class="flex items-center gap-2 mb-4">
           <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">02</span>
-          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Review & Edit Popup</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Contextual Precision</span>
         </div>
-        <h3 class="text-sm font-bold text-black mb-3">Refine Parsed Schemas</h3>
+        <h3 class="text-sm font-bold text-black mb-3">Add Comments Near CTEs & Map Schemas</h3>
         <p class="text-xs leading-relaxed text-slate-500 font-medium">
-          On upload, a confirmation popup reveals the extracted table schemas, formulas, and intents. Take a moment to review and edit this YAML/JSON context directly—human-approved entries rank highest during AI retrieval.
+          When preparing SQL files for upload, always <strong class="font-semibold text-black">add comments near your CTEs</strong> and complex subqueries explaining their business intent. Map physical <strong class="font-semibold text-black">Table Schemas</strong> in the studio so the AI learns exactly which columns belong to which tables.
         </p>
       </div>
 
-      <!-- Tip 3 -->
+      <!-- Feature 3: Confirmation Review Popup -->
       <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
         <div class="flex items-center gap-2 mb-4">
           <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">03</span>
-          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Centralize Business Rules</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Interactive Import Flow</span>
         </div>
-        <h3 class="text-sm font-bold text-black mb-3">Define Playbooks Clearly</h3>
+        <h3 class="text-sm font-bold text-black mb-3">Verify Business Intent in the Popup</h3>
         <p class="text-xs leading-relaxed text-slate-500 font-medium">
-          Create structured playbooks for formulas (like <code class="font-mono text-[10px] bg-slate-100 px-1 py-0.5 rounded text-slate-800">revenue - cogs</code>) and column listings. Defining rules explicitly stops the AI from inventing non-existent columns.
+          Uploading SQL queries automatically triggers extraction. You'll receive a confirmation popup displaying the parsed unified context: business intent, table schemas, rules, formulas, and logics. You can edit this metadata before saving—human-revised context takes priority during AI retrieval.
+        </p>
+      </div>
+
+      <!-- Feature 4: Playbooks & Analyst Notes -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">04</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Global Business Rules</span>
+        </div>
+        <h3 class="text-sm font-bold text-black mb-3">Leverage Playbooks & Analyst Notes</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Document formulas and metrics constraints in central <strong class="font-semibold text-black">Playbooks</strong>. Use freeform <strong class="font-semibold text-black">Analyst Notes</strong> to capture tribal knowledge or query quirks. The chatbot retrieves and reads all active playbooks and notes before writing a single line of SQL.
         </p>
       </div>
 
