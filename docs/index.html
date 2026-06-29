@@ -153,50 +153,166 @@
 
   <!-- Step Installation Guide (Updated Steps & Added Step 4) -->
   <section id="install" class="max-w-6xl mx-auto px-6 sm:px-8 py-24 border-t border-[#f0f0f0]">
-    <div class="text-left mb-20">
+    <div class="text-left mb-16">
       <h2 class="text-3xl font-extrabold tracking-tighter text-black mb-2">Getting Started</h2>
       <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Set up SlothQuery locally in four quick steps.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       
-      <!-- Step 1 -->
-      <div class="flex flex-col">
-        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">1</div>
-        <h3 class="text-xs font-bold text-black mb-2">Install Package</h3>
-        <p class="text-xs leading-relaxed text-slate-500">
-          Open your standard command line interface (Terminal or CMD) and execute:
-          <code class="font-mono text-[10px] bg-slate-100 text-slate-800 px-1 py-0.5 rounded block mt-2 w-fit">pip install slothquery</code>
+      <!-- Step 1 Card -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <div class="h-8 w-8 rounded-full border border-[#e5e5e5] flex items-center justify-center text-sm font-bold text-black group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300">1</div>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Setup & Install</span>
+        </div>
+        
+        <h3 class="text-base font-bold text-black mb-2">Install SlothQuery</h3>
+        <p class="text-xs leading-relaxed text-slate-500 mb-4">
+          Ensure you have <strong class="font-semibold text-black">Python 3.10+</strong> installed. Then create and activate a virtual environment to keep dependencies isolated:
         </p>
+
+        <!-- Environment Tabs -->
+        <div class="flex border-b border-[#e5e5e5] mb-4">
+          <button id="tab-btn-venv" onclick="switchInstallTab('venv')" class="text-xs font-bold pb-2 px-3 border-b-2 border-black text-black transition-all duration-200 focus:outline-none">
+            Python venv
+          </button>
+          <button id="tab-btn-conda" onclick="switchInstallTab('conda')" class="text-xs font-bold pb-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-black transition-all duration-200 focus:outline-none">
+            Conda
+          </button>
+        </div>
+
+        <!-- Terminal Venv -->
+        <div id="terminal-venv" class="font-mono text-xs text-[#a9b1d6] bg-[#09090b] border border-[#27272a] rounded-lg shadow-inner overflow-hidden w-full">
+          <div class="flex items-center justify-between px-3 py-2 bg-[#18181b] border-b border-[#27272a] rounded-t-lg select-none">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#ef4444]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#f59e0b]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#10b981]/80"></span>
+            </div>
+            <button onclick="copyTerminalText('venv-commands', 'copy-btn-venv')" id="copy-btn-venv" class="text-[10px] text-slate-400 font-bold hover:text-white flex items-center gap-1 transition-colors">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <div class="p-4 overflow-x-auto leading-relaxed select-all" id="venv-commands">
+            <span class="text-slate-500"># Create virtual environment</span><br/>
+            <span class="text-white">python -m venv .venv</span><br/><br/>
+            <span class="text-slate-500"># Activate environment</span><br/>
+            <span class="text-[#7aa2f7]">.venv\Scripts\activate</span> <span class="text-slate-500"># Windows</span><br/>
+            <span class="text-[#7aa2f7]">source .venv/bin/activate</span> <span class="text-slate-500"># macOS / Linux</span><br/><br/>
+            <span class="text-slate-500"># Install the package</span><br/>
+            <span class="text-white">pip install </span><span class="text-[#9ece6a]">slothquery</span>
+          </div>
+        </div>
+
+        <!-- Terminal Conda -->
+        <div id="terminal-conda" class="hidden font-mono text-xs text-[#a9b1d6] bg-[#09090b] border border-[#27272a] rounded-lg shadow-inner overflow-hidden w-full">
+          <div class="flex items-center justify-between px-3 py-2 bg-[#18181b] border-b border-[#27272a] rounded-t-lg select-none">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#ef4444]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#f59e0b]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#10b981]/80"></span>
+            </div>
+            <button onclick="copyTerminalText('conda-commands', 'copy-btn-conda')" id="copy-btn-conda" class="text-[10px] text-slate-400 font-bold hover:text-white flex items-center gap-1 transition-colors">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <div class="p-4 overflow-x-auto leading-relaxed select-all" id="conda-commands">
+            <span class="text-slate-500"># Create conda environment</span><br/>
+            <span class="text-white">conda create -n </span><span class="text-[#7aa2f7]">slothquery</span><span class="text-white"> python=3.11</span><br/><br/>
+            <span class="text-slate-500"># Activate environment</span><br/>
+            <span class="text-white">conda activate </span><span class="text-[#7aa2f7]">slothquery</span><br/><br/>
+            <span class="text-slate-500"># Install the package</span><br/>
+            <span class="text-white">pip install </span><span class="text-[#9ece6a]">slothquery</span>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Step 2 -->
-      <div class="flex flex-col">
-        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">2</div>
-        <h3 class="text-xs font-bold text-black mb-2">Launch & Configure API</h3>
-        <p class="text-xs leading-relaxed text-slate-500">
-          Start the application:
-          <code class="font-mono text-[10px] bg-slate-100 text-slate-800 px-1 py-0.5 rounded block mt-2 w-fit">slothquery</code>
-          This opens your default browser. Go to settings / configurations to set your LLM API provider, test the connection, and save it.
-        </p>
+      <!-- Step 2 Card -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300 justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div class="h-8 w-8 rounded-full border border-[#e5e5e5] flex items-center justify-center text-sm font-bold text-black group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300">2</div>
+            <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Configuration</span>
+          </div>
+          
+          <h3 class="text-base font-bold text-black mb-2">Configure Your LLM API</h3>
+          <p class="text-xs leading-relaxed text-slate-500 mb-4">
+            Launch the app with `slothquery`, then go to <strong class="font-semibold text-black">Settings → Configurations</strong>. Set your LLM API provider, paste your key, test the connection, and save.
+          </p>
+          <p class="text-xs leading-relaxed text-slate-400 font-medium italic border-l-2 border-slate-200 pl-3 py-1 mb-4">
+            Don't have a paid API? Start free — SlothQuery works with <strong class="font-semibold text-slate-600">Gemini, OpenRouter, and Groq</strong> out of the box.
+          </p>
+        </div>
+
+        <div class="font-mono text-xs text-[#a9b1d6] bg-[#09090b] border border-[#27272a] rounded-lg shadow-inner overflow-hidden w-full">
+          <div class="flex items-center justify-between px-3 py-2 bg-[#18181b] border-b border-[#27272a] rounded-t-lg select-none">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#ef4444]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#f59e0b]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#10b981]/80"></span>
+            </div>
+            <button onclick="copyTerminalText('launch-commands', 'copy-btn-launch')" id="copy-btn-launch" class="text-[10px] text-slate-400 font-bold hover:text-white flex items-center gap-1 transition-colors">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <div class="p-4 overflow-x-auto leading-relaxed select-all" id="launch-commands">
+            <span class="text-slate-500"># Start SlothQuery application</span><br/>
+            <span class="text-[#9ece6a]">slothquery</span>
+          </div>
+        </div>
       </div>
 
-      <!-- Step 3 -->
-      <div class="flex flex-col">
-        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">3</div>
-        <h3 class="text-xs font-bold text-black mb-2">Build or Import Knowledge</h3>
-        <p class="text-xs leading-relaxed text-slate-500">
-          Build your analytical knowledge base inside the Knowledge Studio, or go to Settings & Configurations to import a `.slothkb` file shared by someone in your organization.
-        </p>
+      <!-- Step 3 Card -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300 justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div class="h-8 w-8 rounded-full border border-[#e5e5e5] flex items-center justify-center text-sm font-bold text-black group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300">3</div>
+            <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Initialization</span>
+          </div>
+          
+          <h3 class="text-base font-bold text-black mb-2">Build or Import a Knowledge Base</h3>
+          <p class="text-xs leading-relaxed text-slate-500 mb-4">
+            Already have a <code class="font-mono bg-slate-100 text-[#111] px-1 py-0.5 rounded text-[10px]">.slothkb</code> file? Go to <strong class="font-semibold text-black">Settings → Import</strong> to load it instantly.
+          </p>
+          <p class="text-xs leading-relaxed text-slate-500">
+            Starting fresh? Open the <strong class="font-semibold text-black">Knowledge Studio</strong> to define your tables, relationships, and business logic — this is what gives the AI context about your data.
+          </p>
+        </div>
+        
+        <div class="mt-6 flex items-center justify-center border border-[#e5e5e5] rounded-xl p-4 bg-slate-50/50">
+          <svg class="h-8 w-8 text-slate-300 group-hover:text-black transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20" />
+          </svg>
+        </div>
       </div>
 
-      <!-- Step 4 -->
-      <div class="flex flex-col">
-        <div class="h-6 w-6 rounded-full border border-black flex items-center justify-center text-xs font-bold mb-4 select-none">4</div>
-        <h3 class="text-xs font-bold text-black mb-2">Chat & Understand Logics</h3>
-        <p class="text-xs leading-relaxed text-slate-500">
-          Start messaging the agent to generate custom SQL queries, understand business metrics formulas, or inspect table relationships with context-aware accuracy.
-        </p>
+      <!-- Step 4 Card -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300 justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div class="h-8 w-8 rounded-full border border-[#e5e5e5] flex items-center justify-center text-sm font-bold text-black group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300">4</div>
+            <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Querying</span>
+          </div>
+          
+          <h3 class="text-base font-bold text-black mb-2">Start Chatting</h3>
+          <p class="text-xs leading-relaxed text-slate-500 mb-4">
+            Select your <strong class="font-semibold text-black">SQL dialect</strong> in the chat panel and start querying.
+          </p>
+          <p class="text-xs leading-relaxed text-slate-500">
+            Ask it to generate SQL, explain metrics, or map out table relationships — all with context-aware accuracy tuned to your schema.
+          </p>
+        </div>
+        
+        <div class="mt-6 flex items-center justify-center border border-[#e5e5e5] rounded-xl p-4 bg-slate-50/50">
+          <svg class="h-8 w-8 text-slate-300 group-hover:text-black transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
       </div>
 
     </div>
@@ -231,7 +347,7 @@
     </div>
   </footer>
 
-  <!-- Inline Copy Script (Direct Clipboard Copying) -->
+  <!-- Inline Copy & Tab Switching Scripts -->
   <script>
     function copyInstallCommand() {
       const commandText = "pip install slothquery";
@@ -244,6 +360,57 @@
       }).catch(err => {
         console.error("Failed to copy command: ", err);
       });
+    }
+
+    function copyTerminalText(elementId, buttonId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      
+      const text = el.innerText.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById(buttonId);
+        if (btn) {
+          const originalHTML = btn.innerHTML;
+          btn.innerHTML = `
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            <span>Copied!</span>
+          `;
+          btn.classList.add('text-emerald-400');
+          btn.classList.remove('text-slate-400');
+          setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('text-emerald-400');
+            btn.classList.add('text-slate-400');
+          }, 2000);
+        }
+      }).catch(err => {
+        console.error("Failed to copy text: ", err);
+      });
+    }
+
+    function switchInstallTab(tab) {
+      const venvBtn = document.getElementById('tab-btn-venv');
+      const condaBtn = document.getElementById('tab-btn-conda');
+      const venvBlock = document.getElementById('terminal-venv');
+      const condaBlock = document.getElementById('terminal-conda');
+
+      if (tab === 'venv') {
+        venvBtn.classList.add('border-black', 'text-black');
+        venvBtn.classList.remove('border-transparent', 'text-slate-400');
+        condaBtn.classList.remove('border-black', 'text-black');
+        condaBtn.classList.add('border-transparent', 'text-slate-400');
+
+        venvBlock.classList.remove('hidden');
+        condaBlock.classList.add('hidden');
+      } else {
+        condaBtn.classList.add('border-black', 'text-black');
+        condaBtn.classList.remove('border-transparent', 'text-slate-400');
+        venvBtn.classList.remove('border-black', 'text-black');
+        venvBtn.classList.add('border-transparent', 'text-slate-400');
+
+        condaBlock.classList.remove('hidden');
+        venvBlock.classList.add('hidden');
+      }
     }
   </script>
 
