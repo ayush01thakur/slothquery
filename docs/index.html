@@ -378,6 +378,54 @@
     </div>
   </section>
 
+  <!-- Guide to Utilize Knowledge Studio -->
+  <section id="guide" class="max-w-6xl mx-auto px-6 sm:px-8 py-24 border-t border-[#f0f0f0]">
+    <div class="text-left mb-16">
+      <h2 class="text-3xl font-extrabold tracking-tighter text-black mb-2">Utilizing Knowledge Studio at its Best</h2>
+      <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Pro-tips for building a high-fidelity organizational brain for SlothQuery.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      
+      <!-- Tip 1 -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">01</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Annotate Before Uploading</span>
+        </div>
+        <h3 class="text-sm font-bold text-black mb-3">Comment Your Code</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Add descriptive comments directly next to CTEs, complex join filters, or metrics calculations in your SQL files before importing. The parser scans these inline notes to accurately map business logic.
+        </p>
+      </div>
+
+      <!-- Tip 2 -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">02</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Review & Edit Popup</span>
+        </div>
+        <h3 class="text-sm font-bold text-black mb-3">Refine Parsed Schemas</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          On upload, a confirmation popup reveals the extracted table schemas, formulas, and intents. Take a moment to review and edit this YAML/JSON context directly—human-approved entries rank highest during AI retrieval.
+        </p>
+      </div>
+
+      <!-- Tip 3 -->
+      <div class="group flex flex-col bg-white border border-[#e5e5e5] rounded-2xl p-6 shadow-minimal hover:border-black hover:shadow-hover transition-all duration-300">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="text-xs font-bold text-slate-400 font-mono group-hover:text-black transition-colors">03</span>
+          <span class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Centralize Business Rules</span>
+        </div>
+        <h3 class="text-sm font-bold text-black mb-3">Define Playbooks Clearly</h3>
+        <p class="text-xs leading-relaxed text-slate-500 font-medium">
+          Create structured playbooks for formulas (like <code class="font-mono text-[10px] bg-slate-100 px-1 py-0.5 rounded text-slate-800">revenue - cogs</code>) and column listings. Defining rules explicitly stops the AI from inventing non-existent columns.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
   <!-- Clean Minimal Footer -->
   <footer class="bg-white border-t border-[#f0f0f0] py-20">
     <div class="max-w-6xl mx-auto px-6 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-12">
