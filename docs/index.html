@@ -174,33 +174,58 @@
 
         <!-- Environment Tabs -->
         <div class="flex border-b border-[#e5e5e5] mb-4">
-          <button id="tab-btn-venv" onclick="switchInstallTab('venv')" class="text-xs font-bold pb-2 px-3 border-b-2 border-black text-black transition-all duration-200 focus:outline-none">
-            Python venv
+          <button id="tab-btn-win" onclick="switchInstallTab('win')" class="text-xs font-bold pb-2 px-3 border-b-2 border-black text-black transition-all duration-200 focus:outline-none">
+            Windows (venv)
+          </button>
+          <button id="tab-btn-mac" onclick="switchInstallTab('mac')" class="text-xs font-bold pb-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-black transition-all duration-200 focus:outline-none">
+            macOS / Linux (venv)
           </button>
           <button id="tab-btn-conda" onclick="switchInstallTab('conda')" class="text-xs font-bold pb-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-black transition-all duration-200 focus:outline-none">
             Conda
           </button>
         </div>
 
-        <!-- Terminal Venv -->
-        <div id="terminal-venv" class="font-mono text-xs text-[#a9b1d6] bg-[#09090b] border border-[#27272a] rounded-lg shadow-inner overflow-hidden w-full">
+        <!-- Terminal Windows -->
+        <div id="terminal-win" class="font-mono text-xs text-[#a9b1d6] bg-[#09090b] border border-[#27272a] rounded-lg shadow-inner overflow-hidden w-full">
           <div class="flex items-center justify-between px-3 py-2 bg-[#18181b] border-b border-[#27272a] rounded-t-lg select-none">
             <div class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-[#ef4444]/80"></span>
               <span class="w-2 h-2 rounded-full bg-[#f59e0b]/80"></span>
               <span class="w-2 h-2 rounded-full bg-[#10b981]/80"></span>
             </div>
-            <button onclick="copyTerminalText('venv-commands', 'copy-btn-venv')" id="copy-btn-venv" class="text-[10px] text-slate-400 font-bold hover:text-white flex items-center gap-1 transition-colors">
+            <button onclick="copyTerminalText('win-commands', 'copy-btn-win')" id="copy-btn-win" class="text-[10px] text-slate-400 font-bold hover:text-white flex items-center gap-1 transition-colors">
               <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
               <span>Copy</span>
             </button>
           </div>
-          <div class="p-4 overflow-x-auto leading-relaxed select-all" id="venv-commands">
+          <div class="p-4 overflow-x-auto leading-relaxed select-all" id="win-commands">
             <span class="text-slate-500"># Create virtual environment</span><br/>
             <span class="text-white">python -m venv .venv</span><br/><br/>
             <span class="text-slate-500"># Activate environment</span><br/>
-            <span class="text-[#7aa2f7]">.venv\Scripts\activate</span> <span class="text-slate-500"># Windows</span><br/>
-            <span class="text-[#7aa2f7]">source .venv/bin/activate</span> <span class="text-slate-500"># macOS / Linux</span><br/><br/>
+            <span class="text-[#7aa2f7]">.venv\Scripts\activate</span><br/><br/>
+            <span class="text-slate-500"># Install the package</span><br/>
+            <span class="text-white">pip install </span><span class="text-[#9ece6a]">slothquery</span>
+          </div>
+        </div>
+
+        <!-- Terminal macOS / Linux -->
+        <div id="terminal-mac" class="hidden font-mono text-xs text-[#a9b1d6] bg-[#09090b] border border-[#27272a] rounded-lg shadow-inner overflow-hidden w-full">
+          <div class="flex items-center justify-between px-3 py-2 bg-[#18181b] border-b border-[#27272a] rounded-t-lg select-none">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#ef4444]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#f59e0b]/80"></span>
+              <span class="w-2 h-2 rounded-full bg-[#10b981]/80"></span>
+            </div>
+            <button onclick="copyTerminalText('mac-commands', 'copy-btn-mac')" id="copy-btn-mac" class="text-[10px] text-slate-400 font-bold hover:text-white flex items-center gap-1 transition-colors">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <div class="p-4 overflow-x-auto leading-relaxed select-all" id="mac-commands">
+            <span class="text-slate-500"># Create virtual environment</span><br/>
+            <span class="text-white">python3 -m venv .venv</span><br/><br/>
+            <span class="text-slate-500"># Activate environment</span><br/>
+            <span class="text-[#7aa2f7]">source .venv/bin/activate</span><br/><br/>
             <span class="text-slate-500"># Install the package</span><br/>
             <span class="text-white">pip install </span><span class="text-[#9ece6a]">slothquery</span>
           </div>
@@ -389,27 +414,40 @@
     }
 
     function switchInstallTab(tab) {
-      const venvBtn = document.getElementById('tab-btn-venv');
+      const winBtn = document.getElementById('tab-btn-win');
+      const macBtn = document.getElementById('tab-btn-mac');
       const condaBtn = document.getElementById('tab-btn-conda');
-      const venvBlock = document.getElementById('terminal-venv');
+      const winBlock = document.getElementById('terminal-win');
+      const macBlock = document.getElementById('terminal-mac');
       const condaBlock = document.getElementById('terminal-conda');
 
-      if (tab === 'venv') {
-        venvBtn.classList.add('border-black', 'text-black');
-        venvBtn.classList.remove('border-transparent', 'text-slate-400');
-        condaBtn.classList.remove('border-black', 'text-black');
-        condaBtn.classList.add('border-transparent', 'text-slate-400');
+      // Helper function to set tab active state
+      const setTabActive = (activeBtn, activeBlock) => {
+        [winBtn, macBtn, condaBtn].forEach(btn => {
+          if (btn === activeBtn) {
+            btn.classList.add('border-black', 'text-black');
+            btn.classList.remove('border-transparent', 'text-slate-400');
+          } else {
+            btn.classList.remove('border-black', 'text-black');
+            btn.classList.add('border-transparent', 'text-slate-400');
+          }
+        });
 
-        venvBlock.classList.remove('hidden');
-        condaBlock.classList.add('hidden');
-      } else {
-        condaBtn.classList.add('border-black', 'text-black');
-        condaBtn.classList.remove('border-transparent', 'text-slate-400');
-        venvBtn.classList.remove('border-black', 'text-black');
-        venvBtn.classList.add('border-transparent', 'text-slate-400');
+        [winBlock, macBlock, condaBlock].forEach(block => {
+          if (block === activeBlock) {
+            block.classList.remove('hidden');
+          } else {
+            block.classList.add('hidden');
+          }
+        });
+      };
 
-        condaBlock.classList.remove('hidden');
-        venvBlock.classList.add('hidden');
+      if (tab === 'win') {
+        setTabActive(winBtn, winBlock);
+      } else if (tab === 'mac') {
+        setTabActive(macBtn, macBlock);
+      } else if (tab === 'conda') {
+        setTabActive(condaBtn, condaBlock);
       }
     }
   </script>
